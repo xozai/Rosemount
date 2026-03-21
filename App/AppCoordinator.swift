@@ -2,22 +2,23 @@
 // Rosemount
 //
 // Root navigation structure shown when the user is authenticated.
-// Contains the main TabView and Phase 2 navigation wiring:
+// Contains the main TabView with five tabs:
 //
 //   Tab 0 — Home           → HomeTimelineView
 //                            (toolbar leading button → ConversationsView sheet)
-//   Tab 1 — Communities    → CommunitiesPlaceholderView  (Phase 3)
+//   Tab 1 — Communities    → CommunitiesView
 //   Tab 2 — Compose        → presents PhotoComposeView as a sheet (no inline view)
 //   Tab 3 — Notifications  → NotificationsView
 //   Tab 4 — Profile        → ProfileView(accountId:)
 //
 // Types referenced from other files:
-//   HomeTimelineView       — Features/Feed/HomeTimelineView.swift
-//   NotificationsView      — Features/Notifications/NotificationsView.swift
-//   ProfileView            — Features/Profile/ProfileView.swift
-//   PhotoComposeView       — Features/Photos/PhotoComposeView.swift
-//   ConversationsView      — Features/Messaging/ConversationsView.swift
-//   AuthManager            — Core/Auth/AuthManager.swift
+//   HomeTimelineView    — Features/Feed/HomeTimelineView.swift
+//   CommunitiesView     — Features/Communities/CommunitiesView.swift
+//   NotificationsView   — Features/Notifications/NotificationsView.swift
+//   ProfileView         — Features/Profile/ProfileView.swift
+//   PhotoComposeView    — Features/Photos/PhotoComposeView.swift
+//   ConversationsView   — Features/Messaging/ConversationsView.swift
+//   AuthManager         — Core/Auth/AuthManager.swift
 //
 // Swift 5.10 | iOS 17.0+
 
@@ -71,12 +72,14 @@ struct ContentView: View {
                 }
                 .tag(RosemountTab.home.rawValue)
 
-            // 1. Communities — Phase 3 placeholder
-            CommunitiesPlaceholderView()
-                .tabItem {
-                    Label("Communities", systemImage: "person.3")
-                }
-                .tag(RosemountTab.communities.rawValue)
+            // 1. Communities
+            NavigationStack {
+                CommunitiesView()
+            }
+            .tabItem {
+                Label("Communities", systemImage: "person.3")
+            }
+            .tag(RosemountTab.communities.rawValue)
 
             // 2. Compose — centre tab.
             // A transparent placeholder so the tab item renders; the sheet
@@ -123,52 +126,5 @@ struct ContentView: View {
             ConversationsView()
                 .environment(authManager)
         }
-    }
-}
-
-// MARK: - CommunitiesPlaceholderView
-
-/// Phase 3 placeholder for the Communities tab.
-struct CommunitiesPlaceholderView: View {
-    var body: some View {
-        NavigationStack {
-            VStack(spacing: 16) {
-                Image(systemName: "person.3.fill")
-                    .font(.system(size: 56))
-                    .foregroundStyle(.secondary)
-
-                Text("Communities — Coming Soon")
-                    .font(.title3)
-                    .fontWeight(.semibold)
-                    .multilineTextAlignment(.center)
-
-                Text("Community spaces and local timelines\nare coming in Phase 3.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-            }
-            .padding()
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .navigationTitle("Communities")
-            .navigationBarTitleDisplayMode(.large)
-        }
-    }
-}
-
-// MARK: - PostDetailPlaceholderView
-
-/// Legacy stub destination kept for source compatibility with Phase 1 code.
-/// Superseded by PostDetailView in Phase 2.
-struct PostDetailPlaceholderView: View {
-    let statusId: String
-
-    var body: some View {
-        ContentUnavailableView(
-            "Thread View",
-            systemImage: "bubble.left.and.bubble.right",
-            description: Text("Full thread view is coming in Phase 2.")
-        )
-        .navigationTitle("Post")
-        .navigationBarTitleDisplayMode(.inline)
     }
 }

@@ -7,13 +7,13 @@
 
 import SwiftUI
 
-// MastodonStatus            — defined in Core/Mastodon/Models/MastodonStatus.swift
-// AuthManager               — defined in Core/Auth/AuthManager.swift
-// AccountCredential         — defined in Core/Auth/AuthManager.swift
-// HomeTimelineViewModel     — defined in Features/Feed/HomeTimelineViewModel.swift
-// PostCardView              — defined in Shared/Components/PostCardView.swift
-// AvatarView                — defined in Shared/Components/AvatarView.swift
-// PostDetailPlaceholderView — defined in App/AppCoordinator.swift
+// MastodonStatus        — defined in Core/Mastodon/Models/MastodonStatus.swift
+// AuthManager           — defined in Core/Auth/AuthManager.swift
+// AccountCredential     — defined in Core/Auth/AuthManager.swift
+// HomeTimelineViewModel — defined in Features/Feed/HomeTimelineViewModel.swift
+// PostCardView          — defined in Shared/Components/PostCardView.swift
+// AvatarView            — defined in Shared/Components/AvatarView.swift
+// PostDetailView        — defined in Features/Profile/PostDetailView.swift
 
 // MARK: - HomeTimelineView
 
@@ -83,7 +83,7 @@ struct HomeTimelineView: View {
         ScrollView {
             LazyVStack(spacing: 0) {
                 ForEach(viewModel.statuses) { status in
-                    NavigationLink(value: status.id) {
+                    NavigationLink(value: status) {
                         PostCardView(
                             status: status,
                             onTap: nil,         // NavigationLink handles tap
@@ -117,9 +117,8 @@ struct HomeTimelineView: View {
         .refreshable {
             await viewModel.refresh()
         }
-        .navigationDestination(for: String.self) { statusId in
-            // PostDetailPlaceholderView — defined in App/AppCoordinator.swift
-            PostDetailPlaceholderView(statusId: statusId)
+        .navigationDestination(for: MastodonStatus.self) { status in
+            PostDetailView(status: status)
         }
     }
 

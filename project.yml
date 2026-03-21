@@ -17,6 +17,8 @@ settings:
     CODE_SIGN_STYLE: Automatic
     SWIFT_STRICT_CONCURRENCY: complete
     ENABLE_HARDENED_RUNTIME: YES
+    ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+    ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
 
 targets:
   Rosemount:
@@ -27,9 +29,7 @@ targets:
       - path: Core
       - path: Features
       - path: Shared
-      - path: Resources
-        type: folder
-        optional: true
+      - path: Resources/Assets.xcassets
     info:
       path: App/Info.plist
       properties:
