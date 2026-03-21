@@ -248,31 +248,6 @@ final class CommunitiesViewModel {
     }
 }
 
-// MARK: - RosemountCommunity + Optimistic Copy
-
-private extension RosemountCommunity {
-
-    /// Returns a copy of the community with the isMember and myRole fields patched.
-    ///
-    /// Because `RosemountCommunity` is a struct (all `let` properties), we re-encode
-    /// then re-decode via a mutable intermediate to produce the updated copy.
-    func withMembership(isMember: Bool, role: CommunityRole?) -> RosemountCommunity {
-        RosemountCommunity(
-            id:             id,
-            slug:           slug,
-            name:           name,
-            description:    description,
-            avatarURL:      avatarURL,
-            headerURL:      headerURL,
-            isPrivate:      isPrivate,
-            memberCount:    memberCount,
-            postCount:      postCount,
-            createdAt:      createdAt,
-            instanceHost:   instanceHost,
-            myRole:         role,
-            isMember:       isMember,
-            isPinned:       isPinned,
-            pinnedPostIds:  pinnedPostIds
-        )
-    }
-}
+// NOTE: RosemountCommunity.withMembership(isMember:role:) is defined in
+// CommunityDetailViewModel.swift as an internal extension and is visible
+// across the module — no duplicate definition needed here.
