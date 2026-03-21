@@ -1,0 +1,5 @@
+# Fastlane plugins
+# Install with: bundle install
+
+# Automatically set simulator status bar to clean state for screenshots
+gem "fastlane-plugin-simulator_status_bar"

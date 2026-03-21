@@ -45,6 +45,19 @@ targets:
         NSLocationWhenInUseUsageDescription: "Rosemount uses your location only when you choose to share it with a community or attach it to a post."
         NSFaceIDUsageDescription: "Rosemount uses Face ID to securely unlock your account."
         NSMicrophoneUsageDescription: "Rosemount uses the microphone for voice notes in messages and voice rooms."
+        NSPhotoLibraryAddUsageDescription: "Rosemount saves photos you download from the feed to your photo library."
+        UIBackgroundModes:
+          - fetch
+          - processing
+          - audio
+          - remote-notification
+        BGTaskSchedulerPermittedIdentifiers:
+          - com.rosemount.background.refresh
+          - com.rosemount.background.sync
+        CFBundleURLTypes:
+          - CFBundleURLName: com.rosemount.oauth
+            CFBundleURLSchemes:
+              - rosemount
     entitlements:
       path: App/Rosemount.entitlements
       properties:
@@ -53,6 +66,8 @@ targets:
           - webcredentials:rosemount.social
         com.apple.security.application-groups:
           - group.social.rosemount
+        aps-environment: production
+        com.apple.developer.usernotifications.time-sensitive: true
 
   RosemountTests:
     type: bundle.unit-test

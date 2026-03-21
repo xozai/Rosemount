@@ -1,0 +1,43 @@
+Rosemount is a community-first social network built on the open ActivityPub protocol. Connect with communities that matter to you, share with your neighbors, and own your digital presence — without algorithmic manipulation or ads.
+
+COMMUNITIES
+Organize around shared interests with their own feeds, events, voice rooms, and member spaces. Create private invite-only communities or open ones for anyone to join.
+
+OPEN FEDERATION
+Follow and interact with people across Mastodon, Pixelfed, and thousands of other ActivityPub servers. Your social graph belongs to you, not a corporation.
+
+PRIVATE MESSAGING
+End-to-end encrypted direct messages powered by the Signal Protocol. Only you and the recipient can read them — not even Rosemount can.
+
+VOICE ROOMS
+Drop into live audio rooms with your community. Raise your hand to speak, or just listen. No scheduling needed.
+
+EVENTS
+Organize meetups, classes, and gatherings with RSVP tracking, attendee lists, and integrated maps. Syncs with the fediverse via ActivityPub Event.
+
+STORIES
+Share 24-hour ephemeral moments with your community. React with emoji. Stories disappear automatically.
+
+PHOTOS
+A beautiful, chronological photo timeline powered by Pixelfed. No algorithmic reordering — just photos from people you follow.
+
+POLLS
+Get community input with expiring polls. Single or multiple choice, closes automatically.
+
+EMOJI REACTIONS
+React beyond the Like button. Full emoji reaction support compatible with Mastodon-Glitch and Pleroma.
+
+LOCATION SHARING
+Share your approximate location with a community when you choose to. Grid-snapped to ~100m for privacy. Auto-expires.
+
+OFFLINE MODE
+Read your feed without a connection. Posts you like, boosts, and follows queue up and sync automatically when you're back online.
+
+SCHEDULED POSTS
+Write now, publish later. Schedule posts hours or days in advance.
+
+YOUR DATA
+Rosemount is open source. Your data lives on servers you or your community controls. You can move between servers at any time.
+
+PRIVACY FIRST
+No ads. No tracking. No selling your data. Location is grid-snapped. E2E encryption for DMs. Full privacy nutrition label.

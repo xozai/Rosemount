@@ -1,0 +1,319 @@
+# Fastfile — lane definitions for Rosemount iOS
+#
+# Prerequisites (run once per machine):
+#   gem install bundler
+#   bundle install
+#
+# Common commands:
+#   bundle exec fastlane test          → run unit tests only
+#   bundle exec fastlane beta          → build + upload to TestFlight
+#   bundle exec fastlane screenshots   → capture App Store screenshots
+#   bundle exec fastlane release       → full App Store submission
+#   bundle exec fastlane setup_match   → first-time cert/profile setup
+
+default_platform(:ios)
+
+# ─────────────────────────────────────────────
+# Constants
+# ─────────────────────────────────────────────
+
+SCHEME        = "Rosemount"
+TEST_SCHEME   = "RosemountTests"
+WORKSPACE     = "Rosemount.xcodeproj"
+BUNDLE_ID     = "social.rosemount.app"
+TEAM_ID       = ENV["APP_STORE_CONNECT_TEAM_ID"] || "XXXXXXXXXX"
+
+platform :ios do
+
+  # ─────────────────────────────────────────────
+  # before_all: runs before every lane
+  # ─────────────────────────────────────────────
+  before_all do
+    # Make sure we're on the right branch in CI
+    if ENV["CI"]
+      ensure_git_status_clean(show_uncommitted_changes: true)
+    end
+  end
+
+  # ─────────────────────────────────────────────
+  # LANE: setup_match
+  # Run ONCE to create and store certs + profiles.
+  # Creates them in your private certificates repo.
+  # ─────────────────────────────────────────────
+  desc "Create and store certificates and provisioning profiles (run once)"
+  lane :setup_match do
+    match(
+      type: "development",
+      app_identifier: BUNDLE_ID,
+      force_for_new_devices: true
+    )
+    match(
+      type: "appstore",
+      app_identifier: BUNDLE_ID
+    )
+  end
+
+  # ─────────────────────────────────────────────
+  # LANE: certs
+  # Pull latest certs/profiles (run before building on a new machine or in CI)
+  # ─────────────────────────────────────────────
+  desc "Sync certificates and provisioning profiles from match repo"
+  lane :certs do
+    match(
+      type: "appstore",
+      app_identifier: BUNDLE_ID,
+      readonly: true  # don't create new — only download existing
+    )
+  end
+
+  # ─────────────────────────────────────────────
+  # LANE: test
+  # Run the full XCTest suite on the latest simulator.
+  # ─────────────────────────────────────────────
+  desc "Run unit tests"
+  lane :test do
+    run_tests(
+      project: WORKSPACE,
+      scheme: TEST_SCHEME,
+      device: "iPhone 16 Pro",
+      code_coverage: true,
+      output_directory: "./build/test-results",
+      output_files: "report.junit",
+      fail_build: true
+    )
+  end
+
+  # ─────────────────────────────────────────────
+  # LANE: bump
+  # Increment build number, commit, and tag.
+  # ─────────────────────────────────────────────
+  desc "Bump build number and commit"
+  lane :bump do |options|
+    new_build = increment_build_number(
+      xcodeproj: WORKSPACE
+    )
+
+    if options[:version]
+      increment_version_number(
+        version_number: options[:version],
+        xcodeproj: WORKSPACE
+      )
+    end
+
+    version = get_version_number(xcodeproj: WORKSPACE, target: SCHEME)
+
+    git_commit(
+      path: [WORKSPACE, "App/Info.plist"],
+      message: "chore: bump build number to #{new_build} (v#{version})"
+    )
+
+    add_git_tag(tag: "v#{version}-#{new_build}")
+    push_to_git_remote
+  end
+
+  # ─────────────────────────────────────────────
+  # LANE: screenshots
+  # Capture App Store screenshots on all required simulators.
+  # Requires a RosemountUITests scheme with snapshot() calls.
+  # ─────────────────────────────────────────────
+  desc "Capture App Store screenshots"
+  lane :screenshots do
+    # Reset simulators to a clean state
+    erase_simulator(name: "iPhone 16 Pro Max")
+    erase_simulator(name: "iPhone 8 Plus")
+
+    capture_screenshots(
+      project: WORKSPACE,
+      scheme: "RosemountUITests",
+      output_directory: "./fastlane/screenshots",
+      clear_previous_screenshots: true,
+      override_status_bar: true,
+      localize_simulator: true
+    )
+
+    # Generate an HTML preview of screenshots
+    frame_screenshots(white: true)
+  end
+
+  # ─────────────────────────────────────────────
+  # LANE: beta
+  # Run tests → sync certs → bump build → build → upload to TestFlight
+  # ─────────────────────────────────────────────
+  desc "Build and upload a new beta to TestFlight"
+  lane :beta do
+    # 1. Tests must pass
+    test
+
+    # 2. Sync signing credentials
+    certs
+
+    # 3. Auto-bump build number
+    new_build = increment_build_number(xcodeproj: WORKSPACE)
+    version   = get_version_number(xcodeproj: WORKSPACE, target: SCHEME)
+
+    # 4. Build
+    build_app(
+      project: WORKSPACE,
+      scheme: SCHEME,
+      configuration: "Release",
+      export_method: "app-store",
+      export_options: {
+        provisioningProfiles: {
+          BUNDLE_ID => "match AppStore #{BUNDLE_ID}"
+        }
+      },
+      output_directory: "./build",
+      output_name: "Rosemount.ipa",
+      include_symbols: true,
+      include_bitcode: false
+    )
+
+    # 5. Upload to TestFlight
+    upload_to_testflight(
+      ipa: "./build/Rosemount.ipa",
+      skip_waiting_for_build_processing: false,
+      distribute_external: false,  # internal testers only by default
+      notify_external_testers: false,
+      changelog: changelog_from_git_commits(
+        between: [last_git_tag, "HEAD"],
+        pretty: "- %s",
+        merge_commit_filtering: "exclude_merges"
+      )
+    )
+
+    # 6. Commit + tag the bump
+    git_commit(
+      path: [WORKSPACE, "App/Info.plist"],
+      message: "chore: TestFlight build #{new_build} (v#{version})"
+    )
+    add_git_tag(tag: "beta-#{version}-#{new_build}")
+    push_to_git_remote
+
+    # 7. Notify team
+    if ENV["SLACK_URL"]
+      slack(
+        slack_url: ENV["SLACK_URL"],
+        message: "📱 Rosemount #{version} (#{new_build}) uploaded to TestFlight",
+        success: true
+      )
+    end
+  end
+
+  # ─────────────────────────────────────────────
+  # LANE: release
+  # Full App Store submission:
+  # tests → certs → bump → screenshots (optional) → build → upload metadata + binary → submit
+  # ─────────────────────────────────────────────
+  desc "Build and submit a new release to the App Store"
+  lane :release do |options|
+    # 1. Guard: confirm version number was passed
+    UI.user_error!("Pass a version: fastlane release version:1.0.1") unless options[:version]
+
+    # 2. Tests must pass
+    test
+
+    # 3. Sync signing credentials
+    certs
+
+    # 4. Bump version + build
+    increment_version_number(
+      version_number: options[:version],
+      xcodeproj: WORKSPACE
+    )
+    new_build = increment_build_number(xcodeproj: WORKSPACE)
+    version   = get_version_number(xcodeproj: WORKSPACE, target: SCHEME)
+
+    # 5. Build for App Store
+    build_app(
+      project: WORKSPACE,
+      scheme: SCHEME,
+      configuration: "Release",
+      export_method: "app-store",
+      export_options: {
+        provisioningProfiles: {
+          BUNDLE_ID => "match AppStore #{BUNDLE_ID}"
+        }
+      },
+      output_directory: "./build",
+      output_name: "Rosemount.ipa",
+      include_symbols: true,
+      include_bitcode: false
+    )
+
+    # 6. Upload metadata + screenshots + binary; submit for review
+    deliver(
+      ipa: "./build/Rosemount.ipa",
+      submit_for_review: true,
+      automatic_release: false,
+      force: true,
+      skip_screenshots: options[:skip_screenshots] || false,
+
+      # Export compliance — HTTPS encryption exempt (see ECCN 5D992)
+      export_compliance_uses_encryption: true,
+      export_compliance_is_exempt: true,
+
+      # App Review information
+      app_review_information: {
+        first_name: "App",
+        last_name: "Review",
+        phone_number: "+1 555 000 0000",
+        email_address: "review@rosemount.social",
+        demo_user: "appreview@rosemount.social",
+        demo_password: "ReviewPass2024!",
+        notes: "Rosemount is a federated social app built on ActivityPub. " \
+               "On the login screen, the 'Instance URL' field is pre-filled " \
+               "with our demo server (demo.rosemount.social) which has sample " \
+               "communities, posts, events, and voice rooms. " \
+               "A second account (appreview2@rosemount.social / ReviewPass2024!) " \
+               "is available to test DMs and location sharing between accounts."
+      },
+
+      submission_information: {
+        add_id_info_uses_idfa: false,
+        export_compliance_platform: "ios",
+        export_compliance_compliance_required: false,
+        content_rights_has_rights: true,
+        content_rights_contains_third_party_content: false
+      }
+    )
+
+    # 7. Commit + tag + push
+    git_commit(
+      path: [WORKSPACE, "App/Info.plist"],
+      message: "chore: release v#{version} (build #{new_build})"
+    )
+    add_git_tag(tag: "v#{version}")
+    push_to_git_remote
+
+    # 8. Notify team
+    if ENV["SLACK_URL"]
+      slack(
+        slack_url: ENV["SLACK_URL"],
+        message: "🚀 Rosemount #{version} submitted to App Store review!",
+        success: true
+      )
+    end
+  end
+
+  # ─────────────────────────────────────────────
+  # after_all: runs on success
+  # ─────────────────────────────────────────────
+  after_all do |lane|
+    UI.success("✅ Lane '#{lane}' completed successfully.")
+  end
+
+  # ─────────────────────────────────────────────
+  # error: runs on failure
+  # ─────────────────────────────────────────────
+  error do |lane, exception|
+    if ENV["SLACK_URL"]
+      slack(
+        slack_url: ENV["SLACK_URL"],
+        message: "❌ Lane '#{lane}' failed: #{exception.message}",
+        success: false
+      )
+    end
+    UI.error("Lane '#{lane}' failed: #{exception.message}")
+  end
+
+end

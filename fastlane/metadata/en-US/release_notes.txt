@@ -1,0 +1,7 @@
+Welcome to Rosemount 1.0!
+
+Community-first social networking on the open web — no ads, no algorithm, no data harvesting.
+
+This first release includes communities, federated timelines, end-to-end encrypted DMs, voice rooms, stories, events, polls, emoji reactions, photo posts, offline mode, and scheduled posts.
+
+We'd love to hear what you think. Tap the feedback button in Settings or find us at @rosemount@rosemount.social.

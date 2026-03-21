@@ -1,0 +1,11 @@
+app_identifier "social.rosemount.app"
+
+# Your Apple ID — set via environment variable in CI, edit directly for local use
+apple_id ENV["APPLE_ID"] || "your@apple.id"
+
+# Your 10-character Apple Developer Team ID
+# Find it at: https://developer.apple.com/account → Membership → Team ID
+team_id ENV["APP_STORE_CONNECT_TEAM_ID"] || "XXXXXXXXXX"
+
+# iTunes Connect Team ID (usually the same as team_id for individuals)
+itc_team_id ENV["ITUNES_CONNECT_TEAM_ID"] || "XXXXXXXXXX"
