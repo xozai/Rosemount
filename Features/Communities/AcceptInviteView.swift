@@ -57,10 +57,15 @@ final class AcceptInviteViewModel {
         error = nil
 
         do {
+            guard let client else {
+                error = "Unable to connect. Please try again."
+                isLoading = false
+                return
+            }
             // The accept endpoint both validates the invite and returns the community.
             // We call it speculatively here to pre-fill the community preview; the
             // actual "join" has already been committed by the server at this point.
-            let joinedCommunity = try await client!.acceptInvite(code: code)
+            let joinedCommunity = try await client.acceptInvite(code: code)
             community = joinedCommunity
 
             if joinedCommunity.isMember {
