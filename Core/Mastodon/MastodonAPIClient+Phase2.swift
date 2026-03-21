@@ -265,3 +265,11 @@ private extension String {
     /// Encodes the string as UTF-8 `Data`. Used in multipart body construction.
     var p2UTF8: Data { Data(utf8) }
 }
+
+// MARK: - Phase 5 Extensions
+
+extension MastodonAPIClient {
+    func followAccount(id: String) async throws -> MastodonAccount {
+        try await post(path: "api/v1/accounts/\(id)/follow", body: [:])
+    }
+}
