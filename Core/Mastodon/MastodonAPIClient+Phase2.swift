@@ -39,8 +39,8 @@ extension MastodonAPIClient {
 
     // MARK: - File-private Helpers
 
-    /// A correctly configured JSON decoder matching the one used inside MastodonAPIClient.
-    nonisolated fileprivate var p2Decoder: JSONDecoder {
+    /// Returns a correctly configured JSON decoder matching the one used inside MastodonAPIClient.
+    fileprivate var p2Decoder: JSONDecoder {
         let d = JSONDecoder()
         d.keyDecodingStrategy = .convertFromSnakeCase
         d.dateDecodingStrategy = .iso8601
