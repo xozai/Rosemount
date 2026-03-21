@@ -1,73 +1,54 @@
 // MastodonAPIClient+Phase2.swift
 // Rosemount
 //
-// Phase 2 extension on MastodonAPIClient adding accounts, conversations,
-// and thread-context endpoints.
+// Phase 2 extension on MastodonAPIClient.
 //
-// Because `instanceURL` and `accessToken` are declared `private` in the
-// main actor file, this extension drives its own URLSession calls rather
-// than routing through the private helpers.  The pattern — build URLRequest,
-// attach Bearer token, decode JSON — is identical to the rest of the client.
+// Adds the following endpoints not covered by the base client or other
+// in-file extensions:
+//
+//   Accounts:
+//     accountStatuses(id:maxId:limit:excludeReplies:)  — with excludeReplies param
+//     updateCredentials(displayName:note:avatarData:headerData:)
+//
+//   Conversations (DMs):
+//     conversations(maxId:limit:)
+//     markConversationRead(id:)
+//     deleteConversation(id:)
+//
+// Note on existing method coverage:
+//   followers(id:maxId:limit:)    — defined in Features/Profile/FollowersView.swift
+//   following(id:maxId:limit:)    — defined in Features/Profile/FollowersView.swift
+//   accountStatuses(id:maxId:limit:) — defined in Features/Profile/ProfileViewModel.swift
+//   statusContext(id:)            — defined in Features/Messaging/MessageThreadView.swift
+//                                   (returns MastodonStatusContext)
 //
 // Types referenced from other files:
-//   MastodonAPIClient   — Core/Mastodon/MastodonAPIClient.swift
-//   MastodonStatus      — Core/Mastodon/Models/MastodonStatus.swift
-//   MastodonAccount     — Core/Mastodon/Models/MastodonAccount.swift
-//   MastodonClientError — Core/Mastodon/MastodonAPIClient.swift
+//   MastodonAPIClient    — Core/Mastodon/MastodonAPIClient.swift
+//   MastodonStatus       — Core/Mastodon/Models/MastodonStatus.swift
+//   MastodonAccount      — Core/Mastodon/Models/MastodonAccount.swift
+//   MastodonConversation — Core/Mastodon/Models/MastodonConversation.swift
+//   MastodonClientError  — Core/Mastodon/MastodonAPIClient.swift
 //
 // Swift 5.10 | iOS 17.0+
 
 import Foundation
 
-// MARK: - MastodonContext
-
-/// The thread context (ancestors + descendants) for a single status.
-struct MastodonContext: Codable {
-    /// Statuses that appear before the focal status in the thread.
-    let ancestors: [MastodonStatus]
-    /// Statuses that appear after the focal status in the thread.
-    let descendants: [MastodonStatus]
-}
-
-// MARK: - MastodonConversation
-
-/// A direct-message conversation thread returned by the /api/v1/conversations endpoint.
-struct MastodonConversation: Codable, Identifiable {
-    let id: String
-    /// `true` when there is at least one unread message in the conversation.
-    let unread: Bool
-    /// All participant accounts (excluding the authenticated user on most instances).
-    let accounts: [MastodonAccount]
-    /// The most recent status in the conversation, if any.
-    let lastStatus: MastodonStatus?
-
-    enum CodingKeys: String, CodingKey {
-        case id
-        case unread
-        case accounts
-        case lastStatus = "last_status"
-    }
-}
-
 // MARK: - MastodonAPIClient Phase 2 Extension
 
 extension MastodonAPIClient {
 
-    // MARK: - Private helpers (fileprivate, scoped to this file)
+    // MARK: - File-private Helpers
 
-    /// Shared JSON decoder configured identically to the one in MastodonAPIClient.
-    fileprivate nonisolated var phase2Decoder: JSONDecoder {
+    /// A correctly configured JSON decoder matching the one used inside MastodonAPIClient.
+    nonisolated fileprivate var p2Decoder: JSONDecoder {
         let d = JSONDecoder()
         d.keyDecodingStrategy = .convertFromSnakeCase
         d.dateDecodingStrategy = .iso8601
         return d
     }
 
-    /// Builds a full URL from `instanceURL`, appending `path` and optional query items.
-    /// Mirrors the private `buildURL` in MastodonAPIClient.
+    /// Builds a complete URL by appending `path` to `instanceURL` with optional query items.
     fileprivate func p2BuildURL(_ path: String, queryItems: [URLQueryItem] = []) -> URL {
-        // `instanceURL` is accessible because MastodonAPIClient exposes it via
-        // the `internal` (default) access level — confirmed by the actor definition.
         var components = URLComponents(
             url: instanceURL.appendingPathComponent(
                 path.hasPrefix("/") ? String(path.dropFirst()) : path
@@ -80,7 +61,7 @@ extension MastodonAPIClient {
         return components.url!
     }
 
-    /// Validates an HTTP response, throwing `MastodonClientError.httpError` on non-2xx.
+    /// Throws `MastodonClientError.httpError` when the response is non-2xx.
     fileprivate func p2Validate(_ response: URLResponse, data: Data) throws {
         guard let http = response as? HTTPURLResponse else { return }
         guard (200...299).contains(http.statusCode) else {
@@ -89,7 +70,7 @@ extension MastodonAPIClient {
         }
     }
 
-    /// Generic GET request that decodes the response body into `T`.
+    /// Executes a GET request and decodes the response body into `T`.
     fileprivate func p2Get<T: Decodable>(
         _ path: String,
         queryItems: [URLQueryItem] = []
@@ -98,19 +79,19 @@ extension MastodonAPIClient {
         var req = URLRequest(url: url)
         req.httpMethod = "GET"
         req.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
-        req.setValue("application/json", forHTTPHeaderField: "Accept")
+        req.setValue("application/json",      forHTTPHeaderField: "Accept")
 
         let (data, response) = try await URLSession.shared.data(for: req)
         try p2Validate(response, data: data)
 
         do {
-            return try phase2Decoder.decode(T.self, from: data)
+            return try p2Decoder.decode(T.self, from: data)
         } catch {
             throw MastodonClientError.decodingError(underlying: error)
         }
     }
 
-    /// Generic POST that decodes the response body into `T`.
+    /// Executes a POST request with an optional JSON body and decodes the response.
     fileprivate func p2Post<T: Decodable>(
         _ path: String,
         body: [String: Any]? = nil
@@ -119,7 +100,7 @@ extension MastodonAPIClient {
         var req = URLRequest(url: url)
         req.httpMethod = "POST"
         req.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
-        req.setValue("application/json", forHTTPHeaderField: "Accept")
+        req.setValue("application/json",      forHTTPHeaderField: "Accept")
 
         if let body {
             req.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -130,19 +111,19 @@ extension MastodonAPIClient {
         try p2Validate(response, data: data)
 
         do {
-            return try phase2Decoder.decode(T.self, from: data)
+            return try p2Decoder.decode(T.self, from: data)
         } catch {
             throw MastodonClientError.decodingError(underlying: error)
         }
     }
 
-    /// Generic DELETE — discards the response body (callers that need the body use `p2Delete<T>`).
+    /// Executes a DELETE request and discards the response body.
     fileprivate func p2DeleteVoid(_ path: String) async throws {
         let url = p2BuildURL(path)
         var req = URLRequest(url: url)
         req.httpMethod = "DELETE"
         req.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
-        req.setValue("application/json", forHTTPHeaderField: "Accept")
+        req.setValue("application/json",      forHTTPHeaderField: "Accept")
 
         let (data, response) = try await URLSession.shared.data(for: req)
         try p2Validate(response, data: data)
@@ -150,13 +131,18 @@ extension MastodonAPIClient {
 
     // MARK: - Accounts
 
-    /// Returns the list of statuses posted by the account with `id`.
+    /// Returns the list of statuses posted by the account with `id`, with an
+    /// optional `excludeReplies` flag.
+    ///
+    /// This is the Phase 2 variant of `accountStatuses(id:maxId:limit:)` defined
+    /// in `Features/Profile/ProfileViewModel.swift`.  It adds the `excludeReplies`
+    /// parameter which is absent from the base version.
     ///
     /// - Parameters:
     ///   - id: The account's numeric string ID.
-    ///   - maxId: Return results older than this status ID (pagination).
-    ///   - limit: Maximum number of results to return (default 20).
-    ///   - excludeReplies: When `true`, omit reply statuses (default `true`).
+    ///   - maxId: Return results older than this status ID (pagination cursor).
+    ///   - limit: Maximum number of statuses to return. Default `20`.
+    ///   - excludeReplies: When `true`, reply statuses are omitted. Default `true`.
     func accountStatuses(
         id: String,
         maxId: String? = nil,
@@ -164,67 +150,38 @@ extension MastodonAPIClient {
         excludeReplies: Bool = true
     ) async throws -> [MastodonStatus] {
         var items: [URLQueryItem] = [
-            URLQueryItem(name: "limit", value: String(limit)),
+            URLQueryItem(name: "limit",           value: String(limit)),
             URLQueryItem(name: "exclude_replies", value: excludeReplies ? "true" : "false"),
         ]
         if let maxId { items.append(URLQueryItem(name: "max_id", value: maxId)) }
         return try await p2Get("/api/v1/accounts/\(id)/statuses", queryItems: items)
     }
 
-    /// Returns the followers of the account with `id`.
+    /// Updates the authenticated user's own profile via
+    /// PATCH `/api/v1/accounts/update_credentials`.
+    ///
+    /// All parameters are optional; only non-`nil` values are sent in the
+    /// multipart body.
     ///
     /// - Parameters:
-    ///   - id: The account's numeric string ID.
-    ///   - maxId: Return results older than this account ID (pagination).
-    ///   - limit: Maximum number of results to return (default 40).
-    func followers(
-        id: String,
-        maxId: String? = nil,
-        limit: Int = 40
-    ) async throws -> [MastodonAccount] {
-        var items: [URLQueryItem] = [URLQueryItem(name: "limit", value: String(limit))]
-        if let maxId { items.append(URLQueryItem(name: "max_id", value: maxId)) }
-        return try await p2Get("/api/v1/accounts/\(id)/followers", queryItems: items)
-    }
-
-    /// Returns the accounts that the account with `id` is following.
-    ///
-    /// - Parameters:
-    ///   - id: The account's numeric string ID.
-    ///   - maxId: Return results older than this account ID (pagination).
-    ///   - limit: Maximum number of results to return (default 40).
-    func following(
-        id: String,
-        maxId: String? = nil,
-        limit: Int = 40
-    ) async throws -> [MastodonAccount] {
-        var items: [URLQueryItem] = [URLQueryItem(name: "limit", value: String(limit))]
-        if let maxId { items.append(URLQueryItem(name: "max_id", value: maxId)) }
-        return try await p2Get("/api/v1/accounts/\(id)/following", queryItems: items)
-    }
-
-    /// Updates the authenticated user's profile via PATCH `/api/v1/accounts/update_credentials`.
-    ///
-    /// All parameters are optional; only non-nil values are sent.
-    ///
-    /// - Parameters:
-    ///   - displayName: New display name.
-    ///   - note: New bio / note (plain text; the server will convert to HTML).
-    ///   - avatarData: JPEG or PNG data for the avatar image.
-    ///   - headerData: JPEG or PNG data for the header banner image.
+    ///   - displayName: New display name string.
+    ///   - note: New bio / note (plain text; the server converts it to HTML).
+    ///   - avatarData: JPEG or PNG image data for the avatar.
+    ///   - headerData: JPEG or PNG image data for the header banner.
+    /// - Returns: The updated `MastodonAccount` entity.
     func updateCredentials(
         displayName: String?,
         note: String?,
         avatarData: Data?,
         headerData: Data?
     ) async throws -> MastodonAccount {
-        let boundary = "RosemountBoundary-\(UUID().uuidString)"
+        let boundary = "RosemountP2Boundary-\(UUID().uuidString)"
         let url = p2BuildURL("/api/v1/accounts/update_credentials")
 
         var req = URLRequest(url: url)
         req.httpMethod = "PATCH"
         req.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
-        req.setValue("application/json", forHTTPHeaderField: "Accept")
+        req.setValue("application/json",      forHTTPHeaderField: "Accept")
         req.setValue(
             "multipart/form-data; boundary=\(boundary)",
             forHTTPHeaderField: "Content-Type"
@@ -232,30 +189,28 @@ extension MastodonAPIClient {
 
         var body = Data()
 
-        /// Appends a plain text field to the multipart body.
-        func appendTextField(name: String, value: String) {
+        func appendText(name: String, value: String) {
             body.append("--\(boundary)\r\n".p2UTF8)
             body.append("Content-Disposition: form-data; name=\"\(name)\"\r\n\r\n".p2UTF8)
             body.append(value.p2UTF8)
             body.append("\r\n".p2UTF8)
         }
 
-        /// Appends a binary file field to the multipart body.
-        func appendFileField(name: String, filename: String, mimeType: String, data: Data) {
+        func appendFile(name: String, filename: String, mimeType: String, fileData: Data) {
             body.append("--\(boundary)\r\n".p2UTF8)
             body.append(
                 "Content-Disposition: form-data; name=\"\(name)\"; filename=\"\(filename)\"\r\n"
                     .p2UTF8
             )
             body.append("Content-Type: \(mimeType)\r\n\r\n".p2UTF8)
-            body.append(data)
+            body.append(fileData)
             body.append("\r\n".p2UTF8)
         }
 
-        if let displayName { appendTextField(name: "display_name", value: displayName) }
-        if let note        { appendTextField(name: "note",         value: note) }
-        if let avatarData  { appendFileField(name: "avatar",  filename: "avatar.jpg",  mimeType: "image/jpeg", data: avatarData) }
-        if let headerData  { appendFileField(name: "header",  filename: "header.jpg",  mimeType: "image/jpeg", data: headerData) }
+        if let displayName { appendText(name: "display_name", value: displayName) }
+        if let note        { appendText(name: "note",         value: note) }
+        if let avatarData  { appendFile(name: "avatar",  filename: "avatar.jpg",  mimeType: "image/jpeg", fileData: avatarData) }
+        if let headerData  { appendFile(name: "header",  filename: "header.jpg",  mimeType: "image/jpeg", fileData: headerData) }
 
         body.append("--\(boundary)--\r\n".p2UTF8)
         req.httpBody = body
@@ -264,7 +219,7 @@ extension MastodonAPIClient {
         try p2Validate(response, data: data)
 
         do {
-            return try phase2Decoder.decode(MastodonAccount.self, from: data)
+            return try p2Decoder.decode(MastodonAccount.self, from: data)
         } catch {
             throw MastodonClientError.decodingError(underlying: error)
         }
@@ -272,11 +227,13 @@ extension MastodonAPIClient {
 
     // MARK: - Conversations (Direct Messages)
 
-    /// Returns the list of direct-message conversations for the authenticated user.
+    /// Returns the direct-message conversations for the authenticated user.
+    ///
+    /// Corresponds to GET `/api/v1/conversations`.
     ///
     /// - Parameters:
-    ///   - maxId: Return results older than this conversation ID (pagination).
-    ///   - limit: Maximum number of results to return (default 20).
+    ///   - maxId: Return results older than this conversation ID (pagination cursor).
+    ///   - limit: Maximum number of conversations to return. Default `20`.
     func conversations(
         maxId: String? = nil,
         limit: Int = 20
@@ -286,33 +243,25 @@ extension MastodonAPIClient {
         return try await p2Get("/api/v1/conversations", queryItems: items)
     }
 
-    /// Marks a conversation as read and returns the updated conversation entity.
+    /// Marks the conversation with the given `id` as read and returns the
+    /// updated conversation entity.
     ///
-    /// - Parameter id: The conversation ID to mark as read.
+    /// Corresponds to POST `/api/v1/conversations/:id/read`.
     func markConversationRead(id: String) async throws -> MastodonConversation {
         try await p2Post("/api/v1/conversations/\(id)/read")
     }
 
-    /// Deletes (removes) a conversation from the authenticated user's inbox.
+    /// Removes a conversation from the authenticated user's inbox.
     ///
-    /// - Parameter id: The conversation ID to delete.
+    /// Corresponds to DELETE `/api/v1/conversations/:id`.
     func deleteConversation(id: String) async throws {
         try await p2DeleteVoid("/api/v1/conversations/\(id)")
     }
-
-    // MARK: - Status Context
-
-    /// Returns the ancestors and descendants of a status, forming its thread.
-    ///
-    /// - Parameter id: The status ID whose context should be fetched.
-    func statusContext(id: String) async throws -> MastodonContext {
-        try await p2Get("/api/v1/statuses/\(id)/context")
-    }
 }
 
-// MARK: - String UTF-8 Helper (file-private)
+// MARK: - UTF-8 Data Helper (file-private)
 
 private extension String {
-    /// Returns the string encoded as UTF-8 `Data`. Used in multipart body construction.
+    /// Encodes the string as UTF-8 `Data`. Used in multipart body construction.
     var p2UTF8: Data { Data(utf8) }
 }

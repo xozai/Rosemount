@@ -1,20 +1,24 @@
 // PostDetailView.swift
 // Rosemount
 //
-// Full post-detail / thread view.  Replaces the PostDetailPlaceholderView stub
-// that shipped in Phase 1.
+// Full post-detail / thread view (Phase 2).
+// Replaces PostDetailPlaceholderView from Phase 1.
 //
-// Shows ancestors above the focal post, the post itself highlighted in the
-// centre, descendants below, and a reply bar pinned at the bottom of the screen.
+// Shows the focal status's ancestors above it, the status itself highlighted,
+// and its descendants below, all in one scrollable column.
+// A pinned reply bar at the bottom lets the user compose a reply inline.
 //
 // Types referenced from other files:
-//   MastodonAPIClient   — Core/Mastodon/MastodonAPIClient.swift  (statusContext, createStatus)
-//   MastodonStatus      — Core/Mastodon/Models/MastodonStatus.swift
-//   AccountCredential   — Core/Auth/AuthManager.swift
-//   AuthManager         — Core/Auth/AuthManager.swift
-//   PostCardView        — Shared/Components/PostCardView.swift
-//   AvatarView          — Shared/Components/AvatarView.swift
-//   stripHTML           — Shared/Components/PostCardView.swift
+//   MastodonAPIClient      — Core/Mastodon/MastodonAPIClient.swift
+//   MastodonStatusContext  — Features/Messaging/MessageThreadView.swift
+//   MastodonStatus         — Core/Mastodon/Models/MastodonStatus.swift
+//   AccountCredential      — Core/Auth/AuthManager.swift
+//   AuthManager            — Core/Auth/AuthManager.swift
+//   PostCardView           — Shared/Components/PostCardView.swift
+//   AvatarView             — Shared/Components/AvatarView.swift
+//
+// statusContext(id:) is defined in Features/Messaging/MessageThreadView.swift
+// and returns MastodonStatusContext.
 //
 // Swift 5.10 | iOS 17.0+
 
@@ -38,7 +42,6 @@ final class PostDetailViewModel {
     // MARK: - Private
 
     private var client: MastodonAPIClient?
-    private var credential: AccountCredential?
 
     // MARK: - Init
 
@@ -48,18 +51,21 @@ final class PostDetailViewModel {
 
     // MARK: - Setup
 
-    /// Stores the active credential and constructs the API client.
+    /// Constructs the API client from the given credential.
+    /// Must be called before `load()` or `submitReply()`.
     func setup(with credential: AccountCredential) {
-        self.credential = credential
-        self.client = MastodonAPIClient(
+        client = MastodonAPIClient(
             instanceURL: credential.instanceURL,
             accessToken: credential.accessToken
         )
     }
 
-    // MARK: - Load
+    // MARK: - Load Thread
 
     /// Fetches the thread context (ancestors + descendants) for `status`.
+    ///
+    /// Uses `statusContext(id:)` defined in Features/Messaging/MessageThreadView.swift,
+    /// which returns `MastodonStatusContext`.
     func load() async {
         guard let client else { return }
         isLoading = true
@@ -74,17 +80,18 @@ final class PostDetailViewModel {
         isLoading = false
     }
 
-    // MARK: - Reply
+    // MARK: - Submit Reply
 
-    /// Posts a reply to `status` using the current `replyDraft` text, then reloads.
+    /// Posts a reply to `status` using `replyDraft`, then reloads the thread.
     func submitReply() async {
         guard let client else { return }
-        let content = replyDraft.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !content.isEmpty else { return }
+        let trimmed = replyDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
 
         do {
             _ = try await client.createStatus(
-                content: content,
+                content: trimmed,
+                // Mirror the focal status's visibility, but cap at .public for replies.
                 visibility: status.visibility == .direct ? .direct : .public,
                 inReplyToId: status.id
             )
@@ -98,7 +105,7 @@ final class PostDetailViewModel {
 
 // MARK: - PostDetailView
 
-/// Full thread view for a single `MastodonStatus`.
+/// Full-screen thread view for a single `MastodonStatus`.
 struct PostDetailView: View {
 
     // MARK: - State
@@ -116,7 +123,7 @@ struct PostDetailView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // ── Thread scroll area ────────────────────────────────────────
+            // ── Thread ──────────────────────────────────────────────────
             ScrollViewReader { proxy in
                 ScrollView {
                     LazyVStack(spacing: 0) {
@@ -124,46 +131,50 @@ struct PostDetailView: View {
                         // Ancestors
                         ForEach(viewModel.ancestors) { ancestor in
                             PostCardView(status: ancestor)
-                                .id(ancestor.id)
+                                .id("ancestor-\(ancestor.id)")
                         }
 
-                        // Focal status separator
                         if !viewModel.ancestors.isEmpty {
                             Divider()
                         }
 
                         // Focal (highlighted) status
-                        focalStatusCard
+                        PostCardView(status: viewModel.status)
                             .id("focal")
+                            // Slightly larger dynamic type to make the focal post
+                            // visually prominent in the thread.
+                            .environment(\.dynamicTypeSize, .large)
+                            .background(Color(.secondarySystemBackground))
 
                         Divider()
 
                         // Descendants
                         ForEach(viewModel.descendants) { descendant in
                             PostCardView(status: descendant)
-                                .id(descendant.id)
+                                .id("descendant-\(descendant.id)")
                         }
 
-                        // Loading indicator for thread fetch
+                        // Loading spinner
                         if viewModel.isLoading {
                             ProgressView()
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 24)
+                                .id("spinner")
                         }
 
                         // Error banner
-                        if let error = viewModel.error {
-                            errorBanner(error)
+                        if let err = viewModel.error {
+                            errorBanner(err)
                         }
 
-                        // Bottom spacer so reply bar doesn't obscure last post
-                        Color.clear.frame(height: 20)
+                        // Padding so the last post clears the reply bar
+                        Color.clear.frame(height: 16)
                     }
                 }
                 .onAppear {
-                    // Scroll to the focal post after the view loads.
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-                        withAnimation {
+                    // After the initial render, scroll to the focal post.
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                        withAnimation(.easeOut(duration: 0.25)) {
                             proxy.scrollTo("focal", anchor: .top)
                         }
                     }
@@ -172,7 +183,7 @@ struct PostDetailView: View {
 
             Divider()
 
-            // ── Reply bar ─────────────────────────────────────────────────
+            // ── Reply bar ─────────────────────────────────────────────
             replyBar
                 .background(Color(.systemBackground))
         }
@@ -185,32 +196,18 @@ struct PostDetailView: View {
         }
     }
 
-    // MARK: - Focal Status Card
-
-    /// The central, highlighted version of the focal status — slightly larger than
-    /// surrounding thread entries and without a tap-to-navigate gesture.
-    private var focalStatusCard: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            PostCardView(status: viewModel.status)
-                // Override default font sizes via environment modifiers so
-                // the focal post reads slightly larger.
-                .environment(\.dynamicTypeSize, .large)
-        }
-        .background(Color(.secondarySystemBackground))
-    }
-
     // MARK: - Reply Bar
 
     private var replyBar: some View {
         HStack(spacing: 10) {
-            // Own avatar
+            // Own avatar (uses AccountCredential.avatarURL which is URL?)
             AvatarView(
                 url: authManager.activeAccount?.avatarURL,
                 size: 32,
                 shape: .circle
             )
 
-            // Draft text field
+            // Draft field — grows up to 4 lines
             TextField("Reply…", text: $viewModel.replyDraft, axis: .vertical)
                 .lineLimit(1...4)
                 .textFieldStyle(.plain)
@@ -221,21 +218,18 @@ struct PostDetailView: View {
                     in: RoundedRectangle(cornerRadius: 18, style: .continuous)
                 )
 
-            // Send button — disabled while draft is empty
+            // Send button — disabled when draft is empty
+            let canSend = !viewModel.replyDraft
+                .trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+
             Button {
                 Task { await viewModel.submitReply() }
             } label: {
                 Image(systemName: "paperplane.fill")
                     .font(.system(size: 17, weight: .semibold))
-                    .foregroundStyle(
-                        viewModel.replyDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                            ? Color(.systemGray3)
-                            : Color.accentColor
-                    )
+                    .foregroundStyle(canSend ? Color.accentColor : Color(.systemGray3))
             }
-            .disabled(
-                viewModel.replyDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            )
+            .disabled(!canSend)
             .buttonStyle(.plain)
         }
         .padding(.horizontal, 12)
@@ -263,7 +257,10 @@ struct PostDetailView: View {
             .font(.subheadline.weight(.medium))
         }
         .padding(12)
-        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .background(
+            Color(.secondarySystemBackground),
+            in: RoundedRectangle(cornerRadius: 10, style: .continuous)
+        )
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
     }

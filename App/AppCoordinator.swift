@@ -2,22 +2,22 @@
 // Rosemount
 //
 // Root navigation structure shown when the user is authenticated.
-// Contains the main TabView (ContentView) and the updated Phase 2 navigation wiring:
+// Contains the main TabView and Phase 2 navigation wiring:
 //
-//   Tab 0 — Home           → HomeTimelineView  (with DM toolbar button → ConversationsView)
+//   Tab 0 — Home           → HomeTimelineView
+//                            (toolbar leading button → ConversationsView sheet)
 //   Tab 1 — Communities    → CommunitiesPlaceholderView  (Phase 3)
-//   Tab 2 — Compose        → presents PhotoComposeView sheet (no inline view)
-//   Tab 3 — Notifications  → NotificationsView  (Phase 2)
-//   Tab 4 — Profile        → ProfileView(accountId:)  (Phase 2)
+//   Tab 2 — Compose        → presents PhotoComposeView as a sheet (no inline view)
+//   Tab 3 — Notifications  → NotificationsView
+//   Tab 4 — Profile        → ProfileView(accountId:)
 //
 // Types referenced from other files:
-//   HomeTimelineView        — Features/Feed/HomeTimelineView.swift
-//   NotificationsView       — Features/Notifications/NotificationsView.swift
-//   ProfileView             — Features/Profile/ProfileView.swift
-//   PhotoComposeView        — Features/Compose/PhotoComposeView.swift
-//   ConversationsView       — Features/Messages/ConversationsView.swift
-//   AuthManager             — Core/Auth/AuthManager.swift
-//   AvatarView              — Shared/Components/AvatarView.swift
+//   HomeTimelineView       — Features/Feed/HomeTimelineView.swift
+//   NotificationsView      — Features/Notifications/NotificationsView.swift
+//   ProfileView            — Features/Profile/ProfileView.swift
+//   PhotoComposeView       — Features/Photos/PhotoComposeView.swift
+//   ConversationsView      — Features/Messaging/ConversationsView.swift
+//   AuthManager            — Core/Auth/AuthManager.swift
 //
 // Swift 5.10 | iOS 17.0+
 
@@ -42,6 +42,7 @@ struct ContentView: View {
 
     @State private var selectedTab: Int = RosemountTab.home.rawValue
     @State private var showingCompose: Bool = false
+    @State private var showingMessages: Bool = false
 
     @Environment(AuthManager.self) private var authManager
 
@@ -51,7 +52,20 @@ struct ContentView: View {
         TabView(selection: $selectedTab) {
 
             // 0. Home Timeline
-            homeTab
+            // HomeTimelineView already contains a NavigationStack.
+            // We add a leading toolbar button for DMs via a modifier that
+            // injects into the inner NavigationStack's toolbar.
+            HomeTimelineView()
+                .toolbar {
+                    ToolbarItem(placement: .navigationBarLeading) {
+                        Button {
+                            showingMessages = true
+                        } label: {
+                            Image(systemName: "bubble.left.and.bubble.right")
+                                .accessibilityLabel("Direct Messages")
+                        }
+                    }
+                }
                 .tabItem {
                     Label("Home", systemImage: "house")
                 }
@@ -64,9 +78,9 @@ struct ContentView: View {
                 }
                 .tag(RosemountTab.communities.rawValue)
 
-            // 2. Compose — centre tab, presented as a sheet.
-            // A transparent view acts as the tab-bar placeholder so the tab
-            // item renders correctly; actual content is modal.
+            // 2. Compose — centre tab.
+            // A transparent placeholder so the tab item renders; the sheet
+            // is presented modally via .onChange below.
             Color.clear
                 .tabItem {
                     Label("New Post", systemImage: "plus.circle.fill")
@@ -81,18 +95,21 @@ struct ContentView: View {
                 .tag(RosemountTab.notifications.rawValue)
 
             // 4. Profile
-            ProfileView(accountId: authManager.activeAccount?.handle ?? "")
-                .tabItem {
-                    Label("Profile", systemImage: "person.circle")
-                }
-                .tag(RosemountTab.profile.rawValue)
+            // Pass the active account's Mastodon handle as the account identifier.
+            // ProfileView uses this to look up the full account via the API.
+            NavigationStack {
+                ProfileView(accountId: authManager.activeAccount?.handle ?? "")
+            }
+            .tabItem {
+                Label("Profile", systemImage: "person.circle")
+            }
+            .tag(RosemountTab.profile.rawValue)
         }
-        // Intercept the compose tab so tapping it shows the sheet rather than
-        // navigating to an empty screen.
+        // Intercept the compose tab to present PhotoComposeView as a sheet,
+        // then revert the selection so dismissal doesn't leave compose "active".
         .onChange(of: selectedTab) { _, newValue in
             if newValue == RosemountTab.compose.rawValue {
                 showingCompose = true
-                // Revert so dismissing the sheet does not leave compose "active".
                 selectedTab = RosemountTab.home.rawValue
             }
         }
@@ -101,26 +118,10 @@ struct ContentView: View {
             PhotoComposeView()
                 .environment(authManager)
         }
-    }
-
-    // MARK: - Home tab (with DM toolbar button)
-
-    /// Wraps HomeTimelineView in a NavigationStack that adds a messages button
-    /// in the toolbar, giving easy access to ConversationsView without occupying
-    /// a dedicated tab.
-    private var homeTab: some View {
-        NavigationStack {
-            HomeTimelineView()
-                .toolbar {
-                    ToolbarItem(placement: .navigationBarLeading) {
-                        NavigationLink {
-                            ConversationsView()
-                        } label: {
-                            Image(systemName: "bubble.left.and.bubble.right")
-                                .accessibilityLabel("Direct Messages")
-                        }
-                    }
-                }
+        // Direct Messages sheet — accessible via the Home tab toolbar button.
+        .sheet(isPresented: $showingMessages) {
+            ConversationsView()
+                .environment(authManager)
         }
     }
 }
@@ -156,8 +157,8 @@ struct CommunitiesPlaceholderView: View {
 
 // MARK: - PostDetailPlaceholderView
 
-/// Legacy stub destination kept for source compatibility.
-/// Phase 2 supersedes this with PostDetailView.
+/// Legacy stub destination kept for source compatibility with Phase 1 code.
+/// Superseded by PostDetailView in Phase 2.
 struct PostDetailPlaceholderView: View {
     let statusId: String
 
