@@ -151,8 +151,8 @@ public actor WebFingerService {
             throw WebFingerError.invalidHandle(handle)
         }
 
-        let resource = "acct:\(user)@\(host)"
-        let resource = try webFingerURL(host: host, resource: resource)
+        let acctResource = "acct:\(user)@\(host)"
+        let resource     = try webFingerURL(host: host, resource: acctResource)
 
         let jrd = try await fetchWebFingerResource(at: resource)
 
