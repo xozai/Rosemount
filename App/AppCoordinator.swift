@@ -2,7 +2,22 @@
 // Rosemount
 //
 // Root navigation structure shown when the user is authenticated.
-// Contains the main TabView (ContentView) plus placeholder and profile views.
+// Contains the main TabView (ContentView) and the updated Phase 2 navigation wiring:
+//
+//   Tab 0 — Home           → HomeTimelineView  (with DM toolbar button → ConversationsView)
+//   Tab 1 — Communities    → CommunitiesPlaceholderView  (Phase 3)
+//   Tab 2 — Compose        → presents PhotoComposeView sheet (no inline view)
+//   Tab 3 — Notifications  → NotificationsView  (Phase 2)
+//   Tab 4 — Profile        → ProfileView(accountId:)  (Phase 2)
+//
+// Types referenced from other files:
+//   HomeTimelineView        — Features/Feed/HomeTimelineView.swift
+//   NotificationsView       — Features/Notifications/NotificationsView.swift
+//   ProfileView             — Features/Profile/ProfileView.swift
+//   PhotoComposeView        — Features/Compose/PhotoComposeView.swift
+//   ConversationsView       — Features/Messages/ConversationsView.swift
+//   AuthManager             — Core/Auth/AuthManager.swift
+//   AvatarView              — Shared/Components/AvatarView.swift
 //
 // Swift 5.10 | iOS 17.0+
 
@@ -26,7 +41,7 @@ struct ContentView: View {
     // MARK: State
 
     @State private var selectedTab: Int = RosemountTab.home.rawValue
-    @State private var showCompose: Bool = false
+    @State private var showingCompose: Bool = false
 
     @Environment(AuthManager.self) private var authManager
 
@@ -35,115 +50,77 @@ struct ContentView: View {
     var body: some View {
         TabView(selection: $selectedTab) {
 
-            // 1. Home Timeline
-            // Defined in Features/Feed/HomeTimelineView.swift
-            HomeTimelineView()
+            // 0. Home Timeline
+            homeTab
                 .tabItem {
                     Label("Home", systemImage: "house")
                 }
                 .tag(RosemountTab.home.rawValue)
 
-            // 2. Communities — Phase 3 placeholder
+            // 1. Communities — Phase 3 placeholder
             CommunitiesPlaceholderView()
                 .tabItem {
                     Label("Communities", systemImage: "person.3")
                 }
                 .tag(RosemountTab.communities.rawValue)
 
-            // 3. Compose — centre tab, presented as a sheet
-            // We use a transparent placeholder so the tab item renders correctly;
-            // the actual compose sheet is presented modally.
+            // 2. Compose — centre tab, presented as a sheet.
+            // A transparent view acts as the tab-bar placeholder so the tab
+            // item renders correctly; actual content is modal.
             Color.clear
                 .tabItem {
                     Label("New Post", systemImage: "plus.circle.fill")
                 }
                 .tag(RosemountTab.compose.rawValue)
 
-            // 4. Notifications — Phase 2 placeholder
-            NotificationsPlaceholderView()
+            // 3. Notifications
+            NotificationsView()
                 .tabItem {
                     Label("Notifications", systemImage: "bell")
                 }
                 .tag(RosemountTab.notifications.rawValue)
 
-            // 5. Profile
-            ProfileView()
+            // 4. Profile
+            ProfileView(accountId: authManager.activeAccount?.handle ?? "")
                 .tabItem {
                     Label("Profile", systemImage: "person.circle")
                 }
                 .tag(RosemountTab.profile.rawValue)
         }
-        // Intercept compose tab selection to present the sheet instead.
+        // Intercept the compose tab so tapping it shows the sheet rather than
+        // navigating to an empty screen.
         .onChange(of: selectedTab) { _, newValue in
             if newValue == RosemountTab.compose.rawValue {
-                showCompose = true
-                // Revert selection so the sheet dismissal doesn't leave compose "active".
+                showingCompose = true
+                // Revert so dismissing the sheet does not leave compose "active".
                 selectedTab = RosemountTab.home.rawValue
             }
         }
-        // Compose sheet
-        // Defined in Features/Compose/ComposeView.swift
-        .sheet(isPresented: $showCompose) {
-            ComposeView()
+        // Photo-first compose sheet (Phase 2).
+        .sheet(isPresented: $showingCompose) {
+            PhotoComposeView()
                 .environment(authManager)
         }
     }
-}
 
-// MARK: - ProfileView
+    // MARK: - Home tab (with DM toolbar button)
 
-/// Displays the currently active account's basic information.
-struct ProfileView: View {
-
-    @Environment(AuthManager.self) private var authManager
-
-    var body: some View {
+    /// Wraps HomeTimelineView in a NavigationStack that adds a messages button
+    /// in the toolbar, giving easy access to ConversationsView without occupying
+    /// a dedicated tab.
+    private var homeTab: some View {
         NavigationStack {
-            Group {
-                if let account = authManager.activeAccount {
-                    VStack(spacing: 20) {
-                        // Avatar
-                        // Defined in Shared/Components/AvatarView.swift
-                        AvatarView(url: account.avatarURL, size: 80, shape: .circle)
-
-                        VStack(spacing: 4) {
-                            Text(account.displayName ?? account.handle)
-                                .font(.title2)
-                                .fontWeight(.bold)
-
-                            Text("@\(account.handle)")
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-                        }
-
-                        Text(account.instanceURL.host ?? account.instanceURL.absoluteString)
-                            .font(.caption)
-                            .foregroundStyle(.tertiary)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 4)
-                            .background(.quaternary, in: Capsule())
-
-                        Spacer()
-
-                        // Sign out
-                        Button(role: .destructive) {
-                            authManager.signOut()
+            HomeTimelineView()
+                .toolbar {
+                    ToolbarItem(placement: .navigationBarLeading) {
+                        NavigationLink {
+                            ConversationsView()
                         } label: {
-                            Label("Sign Out", systemImage: "rectangle.portrait.and.arrow.right")
+                            Image(systemName: "bubble.left.and.bubble.right")
+                                .accessibilityLabel("Direct Messages")
                         }
-                        .padding(.bottom, 32)
                     }
-                    .padding(.top, 40)
-                } else {
-                    ContentUnavailableView(
-                        "No Account",
-                        systemImage: "person.circle",
-                        description: Text("Sign in to view your profile.")
-                    )
                 }
-            }
-            .navigationTitle("Profile")
-            .navigationBarTitleDisplayMode(.large)
         }
     }
 }
@@ -177,40 +154,11 @@ struct CommunitiesPlaceholderView: View {
     }
 }
 
-// MARK: - NotificationsPlaceholderView
-
-/// Placeholder for the Notifications tab until Phase 2.
-struct NotificationsPlaceholderView: View {
-    var body: some View {
-        NavigationStack {
-            VStack(spacing: 16) {
-                Image(systemName: "bell.fill")
-                    .font(.system(size: 56))
-                    .foregroundStyle(.secondary)
-
-                Text("Notifications — Coming Soon")
-                    .font(.title3)
-                    .fontWeight(.semibold)
-                    .multilineTextAlignment(.center)
-
-                Text("Push notifications and activity alerts\nare coming in Phase 2.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-            }
-            .padding()
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .navigationTitle("Notifications")
-            .navigationBarTitleDisplayMode(.large)
-        }
-    }
-}
-
 // MARK: - PostDetailPlaceholderView
 
-/// Stub destination for tapping a post in the timeline.
+/// Legacy stub destination kept for source compatibility.
+/// Phase 2 supersedes this with PostDetailView.
 struct PostDetailPlaceholderView: View {
-    // MastodonStatus defined in Core/Mastodon/Models/MastodonStatus.swift
     let statusId: String
 
     var body: some View {
