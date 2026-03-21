@@ -1,0 +1,66 @@
+name: Rosemount
+options:
+  bundleIdPrefix: social.rosemount
+  deploymentTarget:
+    iOS: "17.0"
+  xcodeVersion: "15.0"
+  createIntermediateGroups: true
+  groupSortPosition: top
+
+settings:
+  base:
+    SWIFT_VERSION: "5.10"
+    MARKETING_VERSION: "1.0.0"
+    CURRENT_PROJECT_VERSION: 1
+    PRODUCT_BUNDLE_IDENTIFIER: social.rosemount.app
+    DEVELOPMENT_TEAM: ""
+    CODE_SIGN_STYLE: Automatic
+    SWIFT_STRICT_CONCURRENCY: complete
+    ENABLE_HARDENED_RUNTIME: YES
+
+targets:
+  Rosemount:
+    type: application
+    platform: iOS
+    sources:
+      - path: App
+      - path: Core
+      - path: Features
+      - path: Shared
+      - path: Resources
+        type: folder
+        optional: true
+    info:
+      path: App/Info.plist
+      properties:
+        CFBundleName: Rosemount
+        CFBundleDisplayName: Rosemount
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
+        UILaunchStoryboardName: LaunchScreen
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: true
+        NSCameraUsageDescription: "Rosemount uses your camera to take photos for posts and your profile."
+        NSPhotoLibraryUsageDescription: "Rosemount accesses your photo library to share images in posts."
+        NSLocationWhenInUseUsageDescription: "Rosemount uses your location only when you choose to share it with a community or attach it to a post."
+        NSFaceIDUsageDescription: "Rosemount uses Face ID to securely unlock your account."
+        NSMicrophoneUsageDescription: "Rosemount uses the microphone for voice notes in messages and voice rooms."
+    entitlements:
+      path: App/Rosemount.entitlements
+      properties:
+        com.apple.developer.associated-domains:
+          - applinks:rosemount.social
+          - webcredentials:rosemount.social
+        com.apple.security.application-groups:
+          - group.social.rosemount
+
+  RosemountTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: Tests/RosemountTests
+    dependencies:
+      - target: Rosemount
+    settings:
+      base:
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/Rosemount.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Rosemount"
