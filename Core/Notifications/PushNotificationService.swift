@@ -83,16 +83,47 @@ final class PushNotificationService: NSObject {
 
     // MARK: - Device Token
 
-    /// Converts the raw APNs device-token `Data` into a lowercase hex string and
-    /// stores it in `deviceToken`.
+    /// Converts the raw APNs device-token `Data` into a lowercase hex string,
+    /// stores it in `deviceToken`, and registers it with the Rosemount backend.
     ///
     /// Call this from `application(_:didRegisterForRemoteNotificationsWithDeviceToken:)`.
     func handleDeviceToken(_ data: Data) {
         let hex = data.map { String(format: "%02x", $0) }.joined()
         deviceToken = hex
         print("[PushNotificationService] Device token registered: \(hex)")
-        // TODO: register token with Rosemount server
-        // Example: await RosemountAPIClient.shared.registerPushToken(hex, for: AuthManager.shared.activeAccount)
+        Task { await registerTokenWithServer(hex) }
+    }
+
+    /// POSTs the device token to the Rosemount push-notification relay server.
+    ///
+    /// The relay server then subscribes to Mastodon Web Push on behalf of each
+    /// registered account and forwards notifications to APNs.
+    private func registerTokenWithServer(_ token: String) async {
+        guard let account = AuthManager.shared.activeAccount else { return }
+
+        let endpoint = URL(string: "https://api.rosemount.social/api/v1/push/register")!
+        var request = URLRequest(url: endpoint)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("Bearer \(account.accessToken)", forHTTPHeaderField: "Authorization")
+
+        let payload: [String: Any] = [
+            "token":        token,
+            "platform":     "apns",
+            "environment":  "production",
+            "instance_url": account.instanceURL.absoluteString,
+            "account_id":   account.handle,
+        ]
+
+        do {
+            request.httpBody = try JSONSerialization.data(withJSONObject: payload)
+            let (_, response) = try await URLSession.shared.data(for: request)
+            if let http = response as? HTTPURLResponse, !(200...299).contains(http.statusCode) {
+                print("[PushNotificationService] Token registration returned HTTP \(http.statusCode)")
+            }
+        } catch {
+            print("[PushNotificationService] Token registration failed: \(error.localizedDescription)")
+        }
     }
 
     // MARK: - Notification Payload Routing

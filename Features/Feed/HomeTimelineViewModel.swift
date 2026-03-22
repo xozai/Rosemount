@@ -14,6 +14,23 @@ import Observation
 // AccountCredential     — defined in Core/Auth/AuthManager.swift
 // FederationPlatform    — defined in Core/Auth/AuthManager.swift
 
+// MARK: - FeedType
+
+/// The timeline source shown in the Home tab.
+enum FeedType: String, CaseIterable {
+    case home      = "Home"
+    case local     = "Local"
+    case federated = "Federated"
+
+    var icon: String {
+        switch self {
+        case .home:      return "house"
+        case .local:     return "building.2"
+        case .federated: return "globe"
+        }
+    }
+}
+
 // MARK: - HomeTimelineViewModel
 
 @Observable
@@ -24,6 +41,9 @@ final class HomeTimelineViewModel {
 
     /// All loaded statuses in display order (newest first).
     var statuses: [MastodonStatus] = []
+
+    /// The timeline source currently being shown.
+    var feedType: FeedType = .home
 
     /// `true` while the first page is loading (e.g. on pull-to-refresh or initial load).
     var isLoading: Bool = false
@@ -64,19 +84,33 @@ final class HomeTimelineViewModel {
 
     // MARK: - Refresh (first page)
 
-    /// Clears existing data and fetches the first page of the home timeline.
+    /// Switches to a different timeline source and immediately refreshes.
+    func switchFeed(to type: FeedType) async {
+        guard type != feedType else { return }
+        feedType = type
+        await refresh()
+    }
+
+    /// Clears existing data and fetches the first page of the current timeline.
     func refresh() async {
         guard let client else { return }
         guard !isLoading else { return }
 
         isLoading = true
         error = nil
-        // Reset pagination
         oldestId = nil
         hasMore = true
 
         do {
-            let page = try await client.homeTimeline(maxId: nil, limit: 40)
+            let page: [MastodonStatus]
+            switch feedType {
+            case .home:
+                page = try await client.homeTimeline(maxId: nil, limit: 40)
+            case .local:
+                page = try await client.localTimeline(maxId: nil, limit: 40)
+            case .federated:
+                page = try await client.federatedTimeline(maxId: nil, limit: 40)
+            }
             statuses = page
             oldestId = page.last?.id
             hasMore = !page.isEmpty
@@ -99,7 +133,15 @@ final class HomeTimelineViewModel {
         error = nil
 
         do {
-            let page = try await client.homeTimeline(maxId: oldestId, limit: 40)
+            let page: [MastodonStatus]
+            switch feedType {
+            case .home:
+                page = try await client.homeTimeline(maxId: oldestId, limit: 40)
+            case .local:
+                page = try await client.localTimeline(maxId: oldestId, limit: 40)
+            case .federated:
+                page = try await client.federatedTimeline(maxId: oldestId, limit: 40)
+            }
             if page.isEmpty {
                 hasMore = false
             } else {

@@ -14,6 +14,7 @@ import SwiftUI
 // MastodonAttachment   — defined in Core/Mastodon/Models/MastodonStatus.swift
 // MastodonPoll         — defined in Core/Mastodon/Models/MastodonStatus.swift
 // AvatarView           — defined in Shared/Components/AvatarView.swift
+// MastodonAPIClient    — defined in Core/Mastodon/MastodonAPIClient.swift
 
 // MARK: - PostCardView
 
@@ -27,6 +28,12 @@ struct PostCardView: View {
     var onFavourite: (() -> Void)?
     var onBoost: (() -> Void)?
     var onReply: (() -> Void)?
+
+    // MARK: - Moderation State
+
+    @Environment(AuthManager.self) private var authManager
+    @State private var showingReportConfirm = false
+    @State private var moderationFeedback: String? = nil
 
     // MARK: - Init
 
@@ -97,6 +104,38 @@ struct PostCardView: View {
                 .padding(.vertical, 8)
 
             Divider()
+        }
+        .contextMenu {
+            moderationMenu(for: status.reblog ?? status)
+        }
+        .confirmationDialog(
+            "Report Post",
+            isPresented: $showingReportConfirm,
+            titleVisibility: .visible
+        ) {
+            Button("Report to moderators", role: .destructive) {
+                Task { await submitReport(status: status.reblog ?? status) }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This will send a report to the instance moderators. Thank you for keeping Rosemount safe.")
+        }
+        .overlay(alignment: .bottom) {
+            if let feedback = moderationFeedback {
+                Text(feedback)
+                    .font(.caption)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .background(.thinMaterial, in: Capsule())
+                    .padding(.bottom, 6)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                    .onAppear {
+                        Task {
+                            try? await Task.sleep(for: .seconds(2.5))
+                            withAnimation { moderationFeedback = nil }
+                        }
+                    }
+            }
         }
     }
 
@@ -244,6 +283,62 @@ struct PostCardView: View {
             .foregroundStyle(isActive ? activeColor : .secondary)
         }
         .buttonStyle(.plain)
+    }
+
+    // MARK: - Moderation
+
+    @ViewBuilder
+    private func moderationMenu(for displayStatus: MastodonStatus) -> some View {
+        // Only show moderation options for posts by other people.
+        let ownHandle = authManager.activeAccount?.handle ?? ""
+        let isOwn = displayStatus.account.acct == ownHandle
+            || displayStatus.account.acct.hasPrefix(ownHandle + "@")
+
+        if !isOwn {
+            Button {
+                showingReportConfirm = true
+            } label: {
+                Label("Report Post", systemImage: "flag")
+            }
+
+            Button(role: .destructive) {
+                Task { await blockAuthor(of: displayStatus) }
+            } label: {
+                Label("Block @\(displayStatus.account.acct)", systemImage: "hand.raised")
+            }
+        }
+
+        // Share is available for all posts.
+        if let urlString = displayStatus.url, let url = URL(string: urlString) {
+            ShareLink(item: url) {
+                Label("Share Post", systemImage: "square.and.arrow.up")
+            }
+        }
+    }
+
+    private func submitReport(status: MastodonStatus) async {
+        guard let credential = authManager.activeAccount else { return }
+        let client = MastodonAPIClient(credential: credential)
+        do {
+            try await client.reportStatus(
+                accountId: status.account.id,
+                statusIds: [status.id]
+            )
+            withAnimation { moderationFeedback = "Report submitted. Thank you." }
+        } catch {
+            withAnimation { moderationFeedback = "Report failed. Please try again." }
+        }
+    }
+
+    private func blockAuthor(of status: MastodonStatus) async {
+        guard let credential = authManager.activeAccount else { return }
+        let client = MastodonAPIClient(credential: credential)
+        do {
+            _ = try await client.block(id: status.account.id)
+            withAnimation { moderationFeedback = "@\(status.account.acct) blocked." }
+        } catch {
+            withAnimation { moderationFeedback = "Block failed. Please try again." }
+        }
     }
 
     // MARK: - Helpers

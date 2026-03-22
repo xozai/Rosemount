@@ -266,10 +266,34 @@ private extension String {
     var p2UTF8: Data { Data(utf8) }
 }
 
-// MARK: - Phase 5 Extensions
+// MARK: - Convenience init from AccountCredential
 
 extension MastodonAPIClient {
-    func followAccount(id: String) async throws -> MastodonAccount {
-        try await post(path: "api/v1/accounts/\(id)/follow", body: [:])
+    /// Convenience initialiser that builds a client directly from an `AccountCredential`.
+    init(credential: AccountCredential) {
+        self.init(instanceURL: credential.instanceURL, accessToken: credential.accessToken)
+    }
+}
+
+// MARK: - Moderation
+
+extension MastodonAPIClient {
+
+    /// Reports a status to the instance moderators.
+    ///
+    /// Corresponds to POST `/api/v1/reports`.
+    func reportStatus(
+        accountId: String,
+        statusIds: [String],
+        comment: String? = nil
+    ) async throws {
+        var body: [String: Any] = [
+            "account_id": accountId,
+            "status_ids": statusIds,
+        ]
+        if let comment { body["comment"] = comment }
+
+        struct ReportResponse: Decodable { let id: String }
+        let _: ReportResponse = try await p2Post("/api/v1/reports", body: body)
     }
 }

@@ -8,10 +8,11 @@
 
 import SwiftUI
 
-// OnboardingViewModel — defined in Features/Onboarding/OnboardingViewModel.swift
-// OnboardingStep      — defined in Features/Onboarding/OnboardingViewModel.swift
-// FederationPlatform  — defined in Core/Auth/AuthManager.swift
-// InstancePickerView  — defined in Features/Onboarding/InstancePickerView.swift
+// OnboardingViewModel         — Features/Onboarding/OnboardingViewModel.swift
+// OnboardingStep              — Features/Onboarding/OnboardingViewModel.swift
+// FederationPlatform          — Core/Auth/AuthManager.swift
+// InstancePickerView          — Features/Onboarding/InstancePickerView.swift
+// RosemountRegistrationView   — Features/Onboarding/RosemountRegistrationView.swift
 
 // MARK: - OnboardingView
 
@@ -31,12 +32,14 @@ struct OnboardingView: View {
                 case .instanceEntry:
                     InstancePickerView(viewModel: viewModel)
 
+                case .registration:
+                    RosemountRegistrationView(viewModel: viewModel)
+
                 case .authenticating:
                     authenticatingView
 
                 case .profileSetup:
-                    // Profile setup is Phase 2; authentication completing is enough for Phase 1.
-                    // AuthManager.isAuthenticated flips to true and RootView will switch to ContentView.
+                    // AuthManager.isAuthenticated flips to true and RootView switches to ContentView.
                     authenticatingView
                 }
             }
@@ -168,7 +171,10 @@ struct OnboardingWelcomeView: View {
             Label("Create Rosemount Account", systemImage: "rosette")
                 .frame(maxWidth: .infinity)
         }
-        .buttonStyle(PlatformButtonStyle(color: Color(.systemGray), style: .secondary))
+        .buttonStyle(PlatformButtonStyle(
+            color: Color(red: 0.80, green: 0.31, blue: 0.36),   // Rosemount rose
+            style: .primary
+        ))
     }
 
     private var fediverseLink: some View {

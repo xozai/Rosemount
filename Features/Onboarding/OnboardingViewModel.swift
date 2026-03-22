@@ -24,6 +24,7 @@ enum OnboardingStep: Equatable {
     case welcome
     case instanceEntry
     case authenticating
+    case registration        // Native Rosemount account creation form
     case profileSetup
 }
 
@@ -45,8 +46,8 @@ final class OnboardingViewModel {
     // MARK: - Private
 
     private let mastodonOAuth = MastodonOAuthService()
-    // PixelfedOAuthService — TODO: define in Core/Pixelfed/PixelfedOAuth.swift
     private let pixelfedOAuth = PixelfedOAuthService()
+    private let rosemountAPI  = RosemountAPIClient()
 
     // MARK: - URL Normalisation
 
@@ -193,12 +194,61 @@ final class OnboardingViewModel {
         isLoading = false
     }
 
-    // MARK: - Rosemount Sign-In (Phase 1 Stub)
+    // MARK: - Rosemount Registration
 
-    /// Stub for native Rosemount account creation.
-    /// Shows a "coming soon" message in Phase 1.
+    /// Navigates to the native Rosemount account registration form.
     func signInWithRosemount() async {
-        // TODO: Phase 1 — implement native Rosemount account registration.
-        error = "Native Rosemount accounts are coming soon. In the meantime, sign in with your Mastodon or Pixelfed account."
+        step = .registration
+    }
+
+    /// Submits a new account registration to the Rosemount back-end.
+    ///
+    /// On success, the account is added to `AuthManager` and the app transitions
+    /// to the authenticated state.
+    func submitRegistration(username: String, email: String, password: String) async {
+        guard !username.isEmpty, !email.isEmpty, !password.isEmpty else {
+            error = "Please fill in all fields."
+            return
+        }
+
+        isLoading = true
+        step = .authenticating
+        error = nil
+
+        do {
+            let response = try await rosemountAPI.register(
+                username: username,
+                email: email,
+                password: password
+            )
+
+            guard let instanceURL = URL(string: response.instanceURL) else {
+                error = "The server returned an invalid instance URL."
+                step = .registration
+                isLoading = false
+                return
+            }
+
+            let credential = AccountCredential(
+                handle: response.handle,
+                instanceURL: instanceURL,
+                accessToken: response.accessToken,
+                tokenType: response.tokenType,
+                scope: response.scope,
+                platform: .rosemount,
+                actorURL: response.actorURL.flatMap(URL.init(string:)),
+                displayName: response.displayName,
+                avatarURL: response.avatarURL.flatMap(URL.init(string:))
+            )
+
+            AuthManager.shared.addAccount(credential)
+            step = .profileSetup
+
+        } catch {
+            self.error = error.localizedDescription
+            step = .registration
+        }
+
+        isLoading = false
     }
 }

@@ -8,6 +8,8 @@
 
 import Foundation
 import Observation
+import PhotosUI
+import SwiftUI
 
 // MastodonAPIClient  — defined in Core/Mastodon/MastodonAPIClient.swift
 // MastodonVisibility — defined in Core/Mastodon/Models/MastodonStatus.swift
@@ -37,6 +39,14 @@ final class ComposeViewModel {
     /// Whether the content-warning field is shown and active.
     var hasSpoilerText: Bool = false
 
+    // MARK: - Media Attachments
+
+    /// Uploaded media attachments to include in the post.
+    var attachments: [MastodonAttachment] = []
+
+    /// `true` while a media upload is in flight.
+    var isUploadingMedia: Bool = false
+
     // MARK: - Posting State
 
     /// `true` while the network request is in flight.
@@ -61,11 +71,13 @@ final class ComposeViewModel {
         Self.characterLimit - characterCount
     }
 
-    /// `true` when the draft is non-empty, within the character limit, and not currently posting.
+    /// `true` when the draft has content or attachments, is within the limit, and is not posting.
     var canPost: Bool {
-        !content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        let hasContent = !content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        return (hasContent || !attachments.isEmpty)
             && remainingCharacters >= 0
             && !isPosting
+            && !isUploadingMedia
     }
 
     // MARK: - Private State
@@ -81,6 +93,36 @@ final class ComposeViewModel {
     func setup(with credential: AccountCredential) {
         // MastodonAPIClient — defined in Core/Mastodon/MastodonAPIClient.swift
         client = MastodonAPIClient(credential: credential)
+    }
+
+    // MARK: - Media Upload
+
+    /// Uploads a photo selected by the user and appends it to `attachments`.
+    ///
+    /// - Parameters:
+    ///   - item: The `PhotosPickerItem` selected in the UI.
+    ///   - altText: Optional accessibility description for the image.
+    func attachPhoto(_ item: PhotosPickerItem, altText: String? = nil) async {
+        guard let client else { return }
+        isUploadingMedia = true
+        defer { isUploadingMedia = false }
+
+        do {
+            guard let data = try await item.loadTransferable(type: Data.self) else { return }
+            let attachment = try await client.uploadMedia(
+                data: data,
+                mimeType: "image/jpeg",
+                description: altText
+            )
+            attachments.append(attachment)
+        } catch {
+            self.error = error
+        }
+    }
+
+    /// Removes an attachment from the draft.
+    func removeAttachment(id: String) {
+        attachments.removeAll { $0.id == id }
     }
 
     // MARK: - Post
@@ -101,12 +143,14 @@ final class ComposeViewModel {
             _ = try await client.createStatus(
                 content: content,
                 visibility: visibility,
-                spoilerText: spoiler.isEmpty ? nil : spoiler
+                spoilerText: spoiler.isEmpty ? nil : spoiler,
+                mediaIds: attachments.map(\.id)
             )
             // Reset draft on success.
             content = ""
             spoilerText = ""
             hasSpoilerText = false
+            attachments = []
             didPost = true
         } catch {
             self.error = error
@@ -123,8 +167,10 @@ final class ComposeViewModel {
         spoilerText = ""
         hasSpoilerText = false
         visibility = .public
+        attachments = []
         error = nil
         didPost = false
         isPosting = false
+        isUploadingMedia = false
     }
 }

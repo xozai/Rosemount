@@ -52,12 +52,21 @@ struct HomeTimelineView: View {
                         )
                     }
                 }
-                // Trailing: filter / settings (stub)
+                // Trailing: feed type filter
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button {
-                        // TODO: Phase 2 — timeline filter options
+                    Menu {
+                        ForEach(FeedType.allCases, id: \.self) { type in
+                            Button {
+                                Task { await viewModel.switchFeed(to: type) }
+                            } label: {
+                                Label(type.rawValue, systemImage: type.icon)
+                            }
+                        }
                     } label: {
-                        Image(systemName: "line.3.horizontal.decrease.circle")
+                        Image(systemName: viewModel.feedType == .home
+                              ? "line.3.horizontal.decrease.circle"
+                              : "line.3.horizontal.decrease.circle.fill")
+                            .symbolRenderingMode(.hierarchical)
                     }
                 }
             }

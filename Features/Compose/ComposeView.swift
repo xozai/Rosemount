@@ -7,12 +7,13 @@
 //
 // Swift 5.10 | iOS 17.0+
 
+import PhotosUI
 import SwiftUI
 
-// ComposeViewModel  — defined in Features/Compose/ComposeViewModel.swift
-// AuthManager       — defined in Core/Auth/AuthManager.swift
-// AccountCredential — defined in Core/Auth/AuthManager.swift
-// AvatarView        — defined in Shared/Components/AvatarView.swift
+// ComposeViewModel   — defined in Features/Compose/ComposeViewModel.swift
+// AuthManager        — defined in Core/Auth/AuthManager.swift
+// AccountCredential  — defined in Core/Auth/AuthManager.swift
+// AvatarView         — defined in Shared/Components/AvatarView.swift
 // MastodonVisibility — defined in Core/Mastodon/Models/MastodonStatus.swift
 
 // MARK: - ComposeView
@@ -28,6 +29,10 @@ struct ComposeView: View {
     // MARK: - Focus
 
     @FocusState private var isContentFocused: Bool
+
+    // MARK: - Photo Picker
+
+    @State private var selectedPhoto: PhotosPickerItem?
 
     // MARK: - Body
 
@@ -67,21 +72,51 @@ struct ComposeView: View {
                 .padding(.horizontal, 16)
                 .padding(.top, 12)
 
+                // Attachment thumbnails
+                if !viewModel.attachments.isEmpty {
+                    attachmentStrip
+                        .padding(.horizontal, 16)
+                        .padding(.top, 8)
+                }
+
+                // Media upload progress
+                if viewModel.isUploadingMedia {
+                    HStack(spacing: 8) {
+                        ProgressView()
+                            .scaleEffect(0.8)
+                        Text("Uploading photo…")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.top, 4)
+                }
+
                 Divider()
                     .padding(.top, 8)
 
                 // Bottom toolbar
                 HStack(spacing: 16) {
 
-                    // Photo attachment — disabled until Phase 2
-                    Button {
-                        // TODO: Phase 2 — media picker
-                    } label: {
+                    // Photo attachment — pick from library (up to 4 total)
+                    PhotosPicker(
+                        selection: $selectedPhoto,
+                        matching: .images,
+                        photoLibrary: .shared()
+                    ) {
                         Image(systemName: "photo.on.rectangle")
                             .font(.title3)
+                            .foregroundStyle(
+                                viewModel.attachments.count >= 4
+                                    ? Color(.systemGray3) : Color(.label)
+                            )
                     }
-                    .disabled(true)
-                    .foregroundStyle(Color(.systemGray3))
+                    .disabled(viewModel.attachments.count >= 4 || viewModel.isUploadingMedia)
+                    .onChange(of: selectedPhoto) { _, item in
+                        guard let item else { return }
+                        selectedPhoto = nil
+                        Task { await viewModel.attachPhoto(item) }
+                    }
 
                     // Location — disabled until Phase 4
                     Button {
@@ -169,6 +204,46 @@ struct ComposeView: View {
     }
 
     // MARK: - Subviews
+
+    /// Horizontal strip of uploaded photo thumbnails with remove buttons.
+    private var attachmentStrip: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(viewModel.attachments, id: \.id) { attachment in
+                    let thumbURL = URL(string: attachment.previewUrl ?? attachment.url ?? "")
+                    ZStack(alignment: .topTrailing) {
+                        AsyncImage(url: thumbURL) { phase in
+                            switch phase {
+                            case .success(let image):
+                                image.resizable()
+                                    .aspectRatio(contentMode: .fill)
+                                    .frame(width: 80, height: 80)
+                                    .clipped()
+                            default:
+                                Rectangle()
+                                    .fill(Color(.systemGray5))
+                                    .frame(width: 80, height: 80)
+                                    .overlay { Image(systemName: "photo").foregroundStyle(.secondary) }
+                            }
+                        }
+                        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+
+                        // Remove button
+                        Button {
+                            viewModel.removeAttachment(id: attachment.id)
+                        } label: {
+                            Image(systemName: "xmark.circle.fill")
+                                .font(.system(size: 18))
+                                .foregroundStyle(.white)
+                                .shadow(radius: 2)
+                        }
+                        .buttonStyle(.plain)
+                        .padding(4)
+                    }
+                }
+            }
+        }
+    }
 
     private var contentWarningField: some View {
         HStack(spacing: 8) {
