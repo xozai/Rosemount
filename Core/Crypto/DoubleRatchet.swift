@@ -326,12 +326,14 @@ actor DoubleRatchetSession {
 /// Transmitted over the network before the first message to bootstrap a session.
 struct PublicKeyBundle: Codable {
     let accountId: String
-    /// Raw representation of the Curve25519 identity public key.
+    /// Raw representation of the Curve25519 key-agreement public key.
     let identityKey: Data
-    /// Raw representation of a signed pre-key (Curve25519).
+    /// Raw representation of a signed pre-key (Curve25519 key-agreement).
     let signedPreKey: Data
-    /// Signature over signedPreKey using the identity key (Ed25519 — placeholder bytes for now).
+    /// Ed25519 signature of `signedPreKey`, produced by `signingKey`.
     let signature: Data
+    /// Raw representation of the Ed25519 signing public key used to verify `signature`.
+    let signingKey: Data
 }
 
 // MARK: - CryptoSessionStore

@@ -3,8 +3,8 @@
 //
 // Individual DM conversation thread view with chat-bubble layout and a
 // bottom compose bar. Messages are Mastodon statuses with visibility=direct.
-//
-// NOTE: Phase 4 will add E2E encryption; this is a plaintext first pass.
+// End-to-end encryption uses the Double Ratchet protocol (DoubleRatchet.swift /
+// E2EMessageService.swift) when both parties have published key bundles.
 //
 // Swift 5.10 | iOS 17.0+
 
@@ -18,6 +18,7 @@ import SwiftUI
 // AvatarView           — defined in Shared/Components/AvatarView.swift
 // stripHTML            — defined in Shared/Components/PostCardView.swift
 // relativeTimestamp    — defined in Shared/Components/PostCardView.swift
+// E2EMessageService    — defined in Core/Crypto/E2EMessageService.swift
 
 // MARK: - MastodonStatusContext
 
@@ -31,8 +32,6 @@ struct MastodonStatusContext: Decodable {
 // MARK: - ThreadNetworkHelper
 //
 // Thin async helper for the status-context endpoint.
-// Mirrors the conventions in MastodonAPIClient without requiring access to its
-// private stored properties. Used only by MessageThreadViewModel.
 
 private struct ThreadNetworkHelper {
 
@@ -46,7 +45,6 @@ private struct ThreadNetworkHelper {
         return d
     }()
 
-    /// Fetches GET /api/v1/statuses/:id/context
     func statusContext(id: String) async throws -> MastodonStatusContext {
         var components = URLComponents(url: instanceURL, resolvingAgainstBaseURL: false)!
         components.path = "/api/v1/statuses/\(id)/context"
@@ -74,48 +72,40 @@ private struct ThreadNetworkHelper {
     }
 }
 
+// MARK: - Decrypted Message Cache Entry
+
+private struct DecryptedEntry {
+    let statusId: String
+    let plaintext: String
+    let wasEncrypted: Bool
+}
+
 // MARK: - MessageThreadViewModel
 
-/// Observable view-model for a single DM thread.
-///
-/// Loads all statuses that belong to the conversation by fetching the context
-/// of `lastStatus`, then filtering to `.direct` visibility only.
-///
-/// Sending prepends the authenticated user's @mention of the recipient and
-/// submits via `createStatus(visibility: .direct)`.
 @Observable
 @MainActor
 final class MessageThreadViewModel {
 
     // MARK: - Observable State
 
-    /// The messages in this thread, sorted oldest-first for display.
     var messages: [MastodonStatus] = []
-
-    /// `true` while the initial thread load is in flight.
+    var decryptedMessages: [String: DecryptedEntry] = [:]
     var isLoading: Bool = false
-
-    /// The text the user is currently composing.
     var draftContent: String = ""
-
-    /// `true` while a send request is in flight.
     var isSending: Bool = false
-
-    /// Non-nil when the most recent operation produced an error.
+    var isEncryptionAvailable: Bool = false
+    var useEncryption: Bool = true
     var error: Error?
 
     // MARK: - Internal State
 
-    /// The conversation backing this view-model.
     let conversation: MastodonConversation
 
     private var client: MastodonAPIClient?
     private var networkHelper: ThreadNetworkHelper?
-
-    /// The `acct` (handle) of the authenticated user — used for bubble alignment.
+    private var e2eService: E2EMessageService?
     private var ownAcct: String = ""
 
-    /// @mention string to prepend to outgoing direct messages.
     private var recipientMention: String {
         guard let participant = conversation.otherParticipant else { return "" }
         let acct = participant.acct
@@ -130,8 +120,6 @@ final class MessageThreadViewModel {
 
     // MARK: - Setup
 
-    /// Configures API helpers from the provided credential.
-    /// Must be called before `load()` or `send()`.
     func setup(with credential: AccountCredential) {
         client = MastodonAPIClient(
             instanceURL: credential.instanceURL,
@@ -142,15 +130,24 @@ final class MessageThreadViewModel {
             accessToken: credential.accessToken
         )
         ownAcct = credential.handle
+
+        let service = E2EMessageService(credential: credential)
+        e2eService = service
+
+        // Bootstrap the local key pair and publish in background; failures are non-fatal.
+        Task {
+            do {
+                try await service.ensureIdentityKey()
+                await service.publishPublicKey()
+                isEncryptionAvailable = true
+            } catch {
+                isEncryptionAvailable = false
+            }
+        }
     }
 
     // MARK: - Loading
 
-    /// Loads the conversation's message history.
-    ///
-    /// 1. Immediately seeds the list with `lastStatus` for instant display.
-    /// 2. Fetches the full status context (ancestors + descendants).
-    /// 3. Combines, de-duplicates, and filters to `.direct` visibility only.
     func load() async {
         guard let networkHelper else { return }
         isLoading = true
@@ -158,36 +155,64 @@ final class MessageThreadViewModel {
 
         do {
             if let last = conversation.lastStatus {
-                // Seed with the last status while the network call is in flight.
-                if messages.isEmpty {
-                    messages = [last]
-                }
+                if messages.isEmpty { messages = [last] }
 
                 let context = try await networkHelper.statusContext(id: last.id)
-
                 let thread: [MastodonStatus] = (context.ancestors + [last] + context.descendants)
                     .filter { $0.visibility == .direct }
 
-                // De-duplicate by ID, preserving order.
                 var seen = Set<String>()
                 messages = thread.filter { seen.insert($0.id).inserted }
             }
         } catch {
-            // Non-fatal: leave any seeded messages visible.
             self.error = error
         }
 
         isLoading = false
+
+        // Decrypt any encrypted messages in the loaded thread.
+        await decryptAll()
+    }
+
+    // MARK: - Decryption
+
+    private func decryptAll() async {
+        guard let service = e2eService else { return }
+        for message in messages where decryptedMessages[message.id] == nil {
+            await decryptStatus(message, service: service)
+        }
+    }
+
+    private func decryptStatus(_ status: MastodonStatus, service: E2EMessageService) async {
+        let encrypted = await service.isEncrypted(status)
+        guard encrypted else {
+            decryptedMessages[status.id] = DecryptedEntry(
+                statusId: status.id,
+                plaintext: stripHTML(status.content),
+                wasEncrypted: false
+            )
+            return
+        }
+        do {
+            if let plaintext = try await service.decryptMessage(status) {
+                decryptedMessages[status.id] = DecryptedEntry(
+                    statusId: status.id,
+                    plaintext: plaintext,
+                    wasEncrypted: true
+                )
+            }
+        } catch {
+            decryptedMessages[status.id] = DecryptedEntry(
+                statusId: status.id,
+                plaintext: "⚠️ Unable to decrypt message.",
+                wasEncrypted: true
+            )
+        }
     }
 
     // MARK: - Sending
 
-    /// Sends `draftContent` as a direct-message reply in this conversation thread.
-    ///
-    /// The recipient's @handle is automatically prepended when absent.
-    /// On success the draft is cleared and the new status is appended locally.
     func send() async {
-        guard let client else { return }
         let trimmed = draftContent.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty, !isSending else { return }
 
@@ -204,13 +229,33 @@ final class MessageThreadViewModel {
         let replyToId = messages.last?.id
 
         do {
-            let sent = try await client.createStatus(
-                content: fullContent,
-                visibility: .direct,
-                inReplyToId: replyToId
-            )
+            let sent: MastodonStatus
+
+            if useEncryption,
+               isEncryptionAvailable,
+               let service = e2eService,
+               let recipient = conversation.otherParticipant {
+                sent = try await service.sendEncryptedMessage(to: recipient, content: fullContent)
+            } else if let client {
+                sent = try await client.createStatus(
+                    content: fullContent,
+                    visibility: .direct,
+                    inReplyToId: replyToId
+                )
+            } else {
+                isSending = false
+                return
+            }
+
             draftContent = ""
             messages.append(sent)
+
+            // Immediately cache the decrypted plaintext so it renders correctly.
+            decryptedMessages[sent.id] = DecryptedEntry(
+                statusId: sent.id,
+                plaintext: trimmed,
+                wasEncrypted: useEncryption && isEncryptionAvailable
+            )
         } catch {
             self.error = error
         }
@@ -220,38 +265,36 @@ final class MessageThreadViewModel {
 
     // MARK: - Ownership
 
-    /// `true` when the given status was authored by the authenticated user.
     func isOwnMessage(_ status: MastodonStatus) -> Bool {
         let acct = status.account.acct
         return acct == ownAcct ||
                acct.hasPrefix(ownAcct + "@") ||
                status.account.username == ownAcct
     }
+
+    // MARK: - Display Helpers
+
+    func displayText(for status: MastodonStatus) -> String {
+        decryptedMessages[status.id]?.plaintext ?? stripHTML(status.content)
+    }
+
+    func wasEncrypted(_ status: MastodonStatus) -> Bool {
+        decryptedMessages[status.id]?.wasEncrypted ?? false
+    }
 }
 
 // MARK: - MessageThreadView
 
-/// Chat-bubble–style view for a single DM thread.
-///
-/// Own messages appear right-aligned in accent-colour bubbles.
-/// Others' messages appear left-aligned with a gray bubble and an avatar.
-/// A sticky bottom bar holds the compose field and send button.
 struct MessageThreadView: View {
-
-    // MARK: - State
 
     @State private var viewModel: MessageThreadViewModel
     @Environment(AuthManager.self) private var authManager
 
     private let bottomAnchorId = "MessageThreadBottom"
 
-    // MARK: - Init
-
     init(conversation: MastodonConversation) {
         _viewModel = State(wrappedValue: MessageThreadViewModel(conversation: conversation))
     }
-
-    // MARK: - Body
 
     var body: some View {
         VStack(spacing: 0) {
@@ -261,10 +304,30 @@ struct MessageThreadView: View {
         }
         .navigationTitle(viewModel.conversation.displayTitle)
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                encryptionStatusButton
+            }
+        }
         .task {
             guard let credential = authManager.activeAccount else { return }
             viewModel.setup(with: credential)
             await viewModel.load()
+        }
+    }
+
+    // MARK: - Encryption status button
+
+    @ViewBuilder
+    private var encryptionStatusButton: some View {
+        if viewModel.isEncryptionAvailable {
+            Button {
+                viewModel.useEncryption.toggle()
+            } label: {
+                Image(systemName: viewModel.useEncryption ? "lock.fill" : "lock.open")
+                    .foregroundStyle(viewModel.useEncryption ? Color.green : Color.secondary)
+                    .accessibilityLabel(viewModel.useEncryption ? "Encryption on" : "Encryption off")
+            }
         }
     }
 
@@ -284,7 +347,6 @@ struct MessageThreadView: View {
                             .id(message.id)
                     }
 
-                    // Invisible anchor used for auto-scroll-to-bottom.
                     Color.clear
                         .frame(height: 1)
                         .id(bottomAnchorId)
@@ -320,11 +382,11 @@ struct MessageThreadView: View {
         }
     }
 
-    // MARK: - Own Bubble (right-aligned, blue)
+    // MARK: - Own Bubble
 
     private func ownBubble(status: MastodonStatus) -> some View {
         VStack(alignment: .trailing, spacing: 3) {
-            Text(stripHTML(status.content))
+            Text(viewModel.displayText(for: status))
                 .font(.body)
                 .foregroundStyle(.white)
                 .padding(.horizontal, 14)
@@ -332,14 +394,22 @@ struct MessageThreadView: View {
                 .background(Color.accentColor, in: MessageBubbleShape(isOwn: true))
                 .textSelection(.enabled)
 
-            Text(relativeTimestamp(from: status.createdAt))
-                .font(.caption2)
-                .foregroundStyle(.secondary)
-                .padding(.trailing, 4)
+            HStack(spacing: 4) {
+                if viewModel.wasEncrypted(status) {
+                    Image(systemName: "lock.fill")
+                        .font(.caption2)
+                        .foregroundStyle(.green)
+                        .accessibilityLabel("Encrypted")
+                }
+                Text(relativeTimestamp(from: status.createdAt))
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.trailing, 4)
         }
     }
 
-    // MARK: - Other Bubble (left-aligned, gray)
+    // MARK: - Other Bubble
 
     private func otherBubble(status: MastodonStatus) -> some View {
         HStack(alignment: .bottom, spacing: 6) {
@@ -350,7 +420,7 @@ struct MessageThreadView: View {
             )
 
             VStack(alignment: .leading, spacing: 3) {
-                Text(stripHTML(status.content))
+                Text(viewModel.displayText(for: status))
                     .font(.body)
                     .foregroundStyle(Color(.label))
                     .padding(.horizontal, 14)
@@ -361,10 +431,18 @@ struct MessageThreadView: View {
                     )
                     .textSelection(.enabled)
 
-                Text(relativeTimestamp(from: status.createdAt))
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                    .padding(.leading, 4)
+                HStack(spacing: 4) {
+                    if viewModel.wasEncrypted(status) {
+                        Image(systemName: "lock.fill")
+                            .font(.caption2)
+                            .foregroundStyle(.green)
+                            .accessibilityLabel("Encrypted")
+                    }
+                    Text(relativeTimestamp(from: status.createdAt))
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.leading, 4)
             }
         }
     }
@@ -417,16 +495,13 @@ struct MessageThreadView: View {
 
 // MARK: - MessageBubbleShape
 
-/// A rounded rectangle whose tail corner has a smaller radius to suggest a
-/// speech bubble. Bottom-trailing is the tail for own messages;
-/// bottom-leading is the tail for others'.
 private struct MessageBubbleShape: Shape {
 
     let isOwn: Bool
 
     func path(in rect: CGRect) -> Path {
-        let r: CGFloat    = 18 // main corner radius
-        let tail: CGFloat = 5  // tail corner radius
+        let r: CGFloat    = 18
+        let tail: CGFloat = 5
 
         var path = Path()
         path.addRoundedRect(

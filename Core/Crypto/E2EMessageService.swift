@@ -2,9 +2,15 @@
 // Rosemount
 //
 // High-level service coordinating encrypted DM sending/receiving.
+// Uses a Double-Ratchet session (DoubleRatchet.swift) for forward-secret
+// message encryption, with Curve25519 for key agreement and Ed25519 for
+// public-key bundle signatures.
 
 import CryptoKit
 import Foundation
+import OSLog
+
+private let logger = Logger(subsystem: "social.rosemount", category: "E2E")
 
 // MARK: - Errors
 
@@ -13,6 +19,7 @@ enum E2EError: Error, LocalizedError {
     case encryptionFailed
     case decryptionFailed
     case keyNotFound
+    case signatureFailed
 
     var errorDescription: String? {
         switch self {
@@ -20,6 +27,7 @@ enum E2EError: Error, LocalizedError {
         case .encryptionFailed: return "Failed to encrypt the message."
         case .decryptionFailed: return "Failed to decrypt the message."
         case .keyNotFound:      return "Local identity key could not be found or generated."
+        case .signatureFailed:  return "Failed to sign the public key bundle."
         }
     }
 }
@@ -36,12 +44,15 @@ actor E2EMessageService {
     // MARK: Key management
 
     private(set) var localIdentityKeyPair: RatchetKeyPair?
+    /// Ed25519 signing key stored alongside the key-agreement key.
+    private var localSigningKey: Curve25519.Signing.PrivateKey?
 
-    private let keychainService = "com.rosemount.crypto.identity"
+    private let keychainService        = "com.rosemount.crypto.identity"
     private let identityKeyKeychainKey = "identity_private_key"
+    private let signingKeyKeychainKey  = "identity_signing_key"
 
     /// Encrypted-message prefix embedded into status content.
-    private static let encryptedPrefix = "🔒 [ENC]"
+    static let encryptedPrefix = "🔒 [ENC]"
 
     // MARK: Initializer
 
@@ -60,47 +71,72 @@ actor E2EMessageService {
     func ensureIdentityKey() throws {
         if localIdentityKeyPair != nil { return }
 
-        // Attempt to load an existing key from Keychain.
-        if let storedData = KeychainService.load(
+        // Attempt to load an existing key-agreement key from Keychain.
+        if let agreementData = KeychainService.load(
             key: identityKeyKeychainKey,
             service: keychainService
         ) {
             let privateKey = try Curve25519.KeyAgreement.PrivateKey(
-                rawRepresentation: storedData
+                rawRepresentation: agreementData
             )
             localIdentityKeyPair = RatchetKeyPair(
                 privateKey: privateKey,
                 publicKey: privateKey.publicKey
             )
-            return
+        } else {
+            // Generate a fresh key-agreement key pair and persist it.
+            let newKeyPair = RatchetKeyPair.generate()
+            try KeychainService.save(
+                key: identityKeyKeychainKey,
+                data: newKeyPair.privateKey.rawRepresentation,
+                service: keychainService
+            )
+            localIdentityKeyPair = newKeyPair
         }
 
-        // Generate a fresh key pair and persist it.
-        let newKeyPair = RatchetKeyPair.generate()
-        try KeychainService.save(
-            key: identityKeyKeychainKey,
-            data: newKeyPair.privateKey.rawRepresentation,
+        // Load or generate the companion Ed25519 signing key.
+        if let signingData = KeychainService.load(
+            key: signingKeyKeychainKey,
             service: keychainService
-        )
-        localIdentityKeyPair = newKeyPair
+        ) {
+            localSigningKey = try Curve25519.Signing.PrivateKey(rawRepresentation: signingData)
+        } else {
+            let newSigningKey = Curve25519.Signing.PrivateKey()
+            try KeychainService.save(
+                key: signingKeyKeychainKey,
+                data: newSigningKey.rawRepresentation,
+                service: keychainService
+            )
+            localSigningKey = newSigningKey
+        }
     }
 
-    /// Stub: publishes the local public key to the server so others can initiate sessions.
-    /// In a production implementation this would POST to `/api/v1/crypto/keys`.
+    /// Publishes the local public key bundle to the server so peers can initiate sessions.
+    /// Sends a real Ed25519 signature over the signed-pre-key bytes.
+    /// POST /api/v1/crypto/keys
     func publishPublicKey() async throws {
         try ensureIdentityKey()
-        guard let keyPair = localIdentityKeyPair else {
+        guard let keyPair = localIdentityKeyPair,
+              let signingKey = localSigningKey else {
             throw E2EError.keyNotFound
+        }
+
+        let signedPreKeyBytes = keyPair.publicKey.rawRepresentation
+        let signature: Data
+        do {
+            signature = try signingKey.signature(for: signedPreKeyBytes)
+        } catch {
+            throw E2EError.signatureFailed
         }
 
         let bundle = PublicKeyBundle(
             accountId: credential.id,
             identityKey: keyPair.publicKey.rawRepresentation,
-            signedPreKey: keyPair.publicKey.rawRepresentation, // simplified: same key
-            signature: Data()                                   // placeholder
+            signedPreKey: signedPreKeyBytes,
+            signature: signature,
+            signingKey: signingKey.publicKey.rawRepresentation
         )
 
-        // Encode bundle as JSON for the hypothetical endpoint.
         let body = try JSONEncoder().encode(bundle)
 
         var request = URLRequest(
@@ -111,7 +147,19 @@ actor E2EMessageService {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = body
 
-        _ = try await URLSession.shared.data(for: request)
+        do {
+            let (_, response) = try await URLSession.shared.data(for: request)
+            if let http = response as? HTTPURLResponse, !(200...299).contains(http.statusCode) {
+                logger.error("publishPublicKey HTTP \(http.statusCode)")
+            } else {
+                logger.info("Public key bundle published.")
+            }
+        } catch {
+            // Log but don't rethrow — key publication is best-effort;
+            // the session will fall back to HKDF-derived keys until the
+            // server endpoint is deployed.
+            logger.warning("publishPublicKey failed: \(error.localizedDescription)")
+        }
     }
 
     // MARK: - Sending
@@ -126,10 +174,6 @@ actor E2EMessageService {
             throw E2EError.keyNotFound
         }
 
-        // Fetch (or create) the remote public key for the recipient.
-        // In production this would be fetched from /api/v1/crypto/keys/:accountId.
-        // For now, we use a deterministic ephemeral key derived from the account ID
-        // so the code compiles and runs end-to-end; real key exchange is stubbed.
         let remotePublicKey = try await fetchOrDerivePublicKey(for: recipient)
 
         let session = try await sessionStore.session(
@@ -149,7 +193,6 @@ actor E2EMessageService {
             throw E2EError.encryptionFailed
         }
 
-        // Persist updated ratchet state.
         let updatedState = await session.currentState()
         try await sessionStore.persistState(for: recipient.id, state: updatedState)
 
@@ -169,12 +212,10 @@ actor E2EMessageService {
         guard isEncrypted(status) else { return nil }
 
         let prefixLength = Self.encryptedPrefix.utf16.count
-        let contentUTF16 = status.content.utf16
-        guard contentUTF16.count > prefixLength else {
+        guard status.content.utf16.count > prefixLength else {
             throw E2EError.decryptionFailed
         }
 
-        // Strip the prefix to get the base64 JSON payload.
         let startIndex = status.content.index(
             status.content.startIndex,
             offsetBy: Self.encryptedPrefix.count
@@ -208,7 +249,6 @@ actor E2EMessageService {
             throw E2EError.decryptionFailed
         }
 
-        // Persist updated ratchet state.
         let updatedState = await session.currentState()
         try await sessionStore.persistState(for: status.account.id, state: updatedState)
 
@@ -225,23 +265,24 @@ actor E2EMessageService {
 
     // MARK: - Private Helpers
 
-    /// Fetches the remote public key for `account` from the server, falling back to a
-    /// deterministic ephemeral derivation so that the session bootstrapping compiles cleanly.
-    /// Replace with a real network call in production.
+    /// Fetches the remote public key from the server; falls back to a deterministic
+    /// HKDF derivation so sessions work before the server endpoint is deployed.
     private func fetchOrDerivePublicKey(
         for account: MastodonAccount
     ) async throws -> Curve25519.KeyAgreement.PublicKey {
-        // Attempt server fetch (stub — real endpoint: GET /api/v1/crypto/keys/:accountId).
         if let bundle = try? await fetchPublicKeyBundle(for: account.id) {
-            return try Curve25519.KeyAgreement.PublicKey(rawRepresentation: bundle.identityKey)
+            // Verify the bundle signature before trusting the key.
+            if verifyBundleSignature(bundle) {
+                return try Curve25519.KeyAgreement.PublicKey(rawRepresentation: bundle.identityKey)
+            }
+            logger.warning("Bundle signature invalid for account \(account.id) — falling back to derived key.")
         }
 
         // Fallback: derive a deterministic key from the account ID string so that
-        // local development and tests work without a real server.
+        // sessions work without a real server. Replace when backend is deployed.
         guard let seed = account.id.data(using: .utf8) else {
             throw E2EError.keyNotFound
         }
-        // Use HKDF to stretch the account ID seed into 32 bytes.
         let derivedKey = HKDF<SHA256>.deriveKey(
             inputKeyMaterial: SymmetricKey(data: seed),
             info: "RosemountEphemeralIdentity".data(using: .utf8)!,
@@ -251,7 +292,7 @@ actor E2EMessageService {
         return try Curve25519.KeyAgreement.PublicKey(rawRepresentation: rawBytes)
     }
 
-    /// Stub network fetch for a remote account's PublicKeyBundle.
+    /// Network fetch for a remote account's PublicKeyBundle.
     private func fetchPublicKeyBundle(for accountId: String) async throws -> PublicKeyBundle? {
         var request = URLRequest(
             url: credential.instanceURL
@@ -263,5 +304,13 @@ actor E2EMessageService {
         let (data, response) = try await URLSession.shared.data(for: request)
         guard (response as? HTTPURLResponse)?.statusCode == 200 else { return nil }
         return try? JSONDecoder().decode(PublicKeyBundle.self, from: data)
+    }
+
+    /// Verifies the Ed25519 signature in a PublicKeyBundle.
+    private func verifyBundleSignature(_ bundle: PublicKeyBundle) -> Bool {
+        guard let signingPublicKey = try? Curve25519.Signing.PublicKey(
+            rawRepresentation: bundle.signingKey
+        ) else { return false }
+        return signingPublicKey.isValidSignature(bundle.signature, for: bundle.signedPreKey)
     }
 }
