@@ -8,9 +8,12 @@
 // Swift 5.10 | iOS 17.0+
 
 import Foundation
+import OSLog
 import Observation
 import UserNotifications
 import UIKit
+
+private let logger = Logger(subsystem: "social.rosemount", category: "PushNotifications")
 
 // MARK: - DeepLink
 
@@ -76,7 +79,7 @@ final class PushNotificationService: NSObject {
             }
             return granted
         } catch {
-            print("[PushNotificationService] Authorization request failed: \(error.localizedDescription)")
+            logger.error("Authorization request failed: \(error.localizedDescription)")
             return false
         }
     }
@@ -90,7 +93,7 @@ final class PushNotificationService: NSObject {
     func handleDeviceToken(_ data: Data) {
         let hex = data.map { String(format: "%02x", $0) }.joined()
         deviceToken = hex
-        print("[PushNotificationService] Device token registered: \(hex)")
+        logger.debug("Device token received (\(hex.prefix(8))…)")
         Task { await registerTokenWithServer(hex) }
     }
 
@@ -119,10 +122,12 @@ final class PushNotificationService: NSObject {
             request.httpBody = try JSONSerialization.data(withJSONObject: payload)
             let (_, response) = try await URLSession.shared.data(for: request)
             if let http = response as? HTTPURLResponse, !(200...299).contains(http.statusCode) {
-                print("[PushNotificationService] Token registration returned HTTP \(http.statusCode)")
+                logger.error("Token registration returned HTTP \(http.statusCode)")
+            } else {
+                logger.info("Push token registered with server.")
             }
         } catch {
-            print("[PushNotificationService] Token registration failed: \(error.localizedDescription)")
+            logger.error("Token registration failed: \(error.localizedDescription)")
         }
     }
 
@@ -190,7 +195,7 @@ final class PushNotificationService: NSObject {
         do {
             try await UNUserNotificationCenter.current().setBadgeCount(count)
         } catch {
-            print("[PushNotificationService] Failed to set badge count: \(error.localizedDescription)")
+            logger.error("Failed to set badge count: \(error.localizedDescription)")
         }
     }
 

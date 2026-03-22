@@ -129,7 +129,7 @@ enum SubmissionChecklist {
         CheckItem(category: "Legal", item: "Export compliance: no encryption beyond standard HTTPS", notes: "E2E encryption: select 'Yes' on export compliance, exemption applies"),
 
         // App Review
-        CheckItem(category: "App Review", item: "Demo account credentials included in App Review notes", notes: "review@rosemount.social / ReviewPass2024!"),
+        CheckItem(category: "App Review", item: "Demo account credentials included in App Review notes", notes: "Supply credentials via App Store Connect → App Review Information (never commit credentials to source control)."),
         CheckItem(category: "App Review", item: "Backend demo server accessible from App Store review servers", notes: "Whitelist 17.0.0.0/8 if IP-restricted"),
         CheckItem(category: "App Review", item: "Review notes explain federated nature of the app", notes: "Reviewers may be confused by ActivityPub"),
         CheckItem(category: "App Review", item: "Content moderation and reporting flows functional", notes: "Reviewers will test reporting"),

@@ -7,9 +7,12 @@
 //
 // Swift 5.10 | iOS 17.0+
 
+import OSLog
 import SwiftUI
 import SwiftData
 import UserNotifications
+
+private let logger = Logger(subsystem: "social.rosemount", category: "AppDelegate")
 
 // MARK: - AppDelegate
 
@@ -19,8 +22,13 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
-        // Request authorisation for remote (push) notifications.
+        BackgroundSyncService.registerTasks()
+
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .badge, .sound]) { granted, error in
+            if let error {
+                logger.error("Push authorisation request failed: \(error.localizedDescription)")
+                return
+            }
             guard granted else { return }
             DispatchQueue.main.async {
                 application.registerForRemoteNotifications()
@@ -33,16 +41,15 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         _ application: UIApplication,
         didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data
     ) {
-        // TODO: Forward the device token to the Rosemount push-notification server.
-        let tokenString = deviceToken.map { String(format: "%02x", $0) }.joined()
-        print("[AppDelegate] Registered for remote notifications. Token: \(tokenString)")
+        logger.debug("Received APNs device token (\(deviceToken.count) bytes)")
+        Task { await PushNotificationService.shared.handleDeviceToken(deviceToken) }
     }
 
     func application(
         _ application: UIApplication,
         didFailToRegisterForRemoteNotificationsWithError error: Error
     ) {
-        print("[AppDelegate] Failed to register for remote notifications: \(error.localizedDescription)")
+        logger.error("Failed to register for remote notifications: \(error.localizedDescription)")
     }
 }
 
@@ -61,24 +68,42 @@ struct RosemountApp: App {
 
     // MARK: SwiftData container
 
+    /// Whether the persistent store failed and we are running on an in-memory fallback.
+    /// When `true` a banner is shown so the user knows data will not persist across launches.
+    @State private var isUsingMemoryFallback: Bool = false
+
     /// Shared ModelContainer for locally-cached timeline data.
-    /// TODO: CachedStatus defined in Shared/SwiftData/CachedStatus.swift
-    /// TODO: CachedActor  defined in Shared/SwiftData/CachedActor.swift
+    /// CachedStatus — defined in Shared/SwiftData/CachedStatus.swift
+    /// CachedActor  — defined in Shared/SwiftData/CachedActor.swift
     private let modelContainer: ModelContainer = {
         let schema = Schema([
             CachedStatus.self,
             CachedActor.self
         ])
-        let config = ModelConfiguration(
+
+        // Attempt persistent store first.
+        let persistentConfig = ModelConfiguration(
             schema: schema,
             isStoredInMemoryOnly: false,
             allowsSave: true
         )
+        if let container = try? ModelContainer(for: schema, configurations: [persistentConfig]) {
+            return container
+        }
+
+        // Persistent store failed (e.g. migration issue). Fall back to in-memory so the
+        // app remains usable; the banner in RootView will inform the user.
+        let logger = Logger(subsystem: "social.rosemount", category: "SwiftData")
+        logger.error("Persistent ModelContainer unavailable — falling back to in-memory store.")
+        let memoryConfig = ModelConfiguration(
+            schema: schema,
+            isStoredInMemoryOnly: true
+        )
         do {
-            return try ModelContainer(for: schema, configurations: [config])
+            return try ModelContainer(for: schema, configurations: [memoryConfig])
         } catch {
-            // A production app would offer migration or graceful degradation.
-            fatalError("Rosemount: Failed to create SwiftData ModelContainer — \(error)")
+            // Even in-memory failed — this indicates a code-level schema error.
+            fatalError("Rosemount: Could not create even an in-memory ModelContainer — \(error)")
         }
     }()
 
@@ -86,7 +111,7 @@ struct RosemountApp: App {
 
     var body: some Scene {
         WindowGroup {
-            RootView()
+            RootView(isUsingMemoryFallback: $isUsingMemoryFallback)
                 .environment(authManager)
                 .modelContainer(modelContainer)
                 .onOpenURL { url in
@@ -126,14 +151,30 @@ struct RosemountApp: App {
 private struct RootView: View {
 
     @Environment(AuthManager.self) private var authManager
+    @Binding var isUsingMemoryFallback: Bool
 
     var body: some View {
-        if authManager.isAuthenticated {
-            // Defined in App/AppCoordinator.swift
-            ContentView()
-        } else {
-            // Defined in Features/Onboarding/OnboardingView.swift
-            OnboardingView()
+        ZStack(alignment: .bottom) {
+            if authManager.isAuthenticated {
+                ContentView()
+            } else {
+                OnboardingView()
+            }
+
+            if isUsingMemoryFallback {
+                HStack(spacing: 8) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundStyle(.orange)
+                    Text("Cache unavailable — posts won't be saved offline.")
+                        .font(.caption)
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 10)
+                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .padding(.horizontal, 20)
+                .padding(.bottom, 16)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
         }
     }
 }

@@ -14,6 +14,6 @@
 	<key>com.apple.developer.push-to-talk</key>
 	<false/>
 	<key>aps-environment</key>
-	<string>development</string>
+	<string>production</string>
 </dict>
 </plist>
