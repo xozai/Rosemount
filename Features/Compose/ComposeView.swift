@@ -45,6 +45,10 @@ struct ComposeView: View {
     @State private var showingDraftPicker = false
     private let draftsStore = OfflineStore.shared
 
+    // MARK: - Location
+
+    @State private var showingPlacePicker = false
+
     // MARK: - Body
 
     var body: some View {
@@ -109,6 +113,30 @@ struct ComposeView: View {
                         .padding(.top, 8)
                 }
 
+                // Location chip
+                if let place = viewModel.selectedPlaceName {
+                    HStack(spacing: 6) {
+                        Image(systemName: "location.fill")
+                            .font(.caption)
+                            .foregroundStyle(.blue)
+                        Text(place)
+                            .font(.caption)
+                            .foregroundStyle(.blue)
+                        Spacer()
+                        Button {
+                            viewModel.clearLocation()
+                        } label: {
+                            Image(systemName: "xmark.circle.fill")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.top, 6)
+                    .accessibilityLabel("Location: \(place). Tap × to remove.")
+                }
+
                 // Media upload progress
                 if viewModel.isUploadingMedia {
                     HStack(spacing: 8) {
@@ -148,15 +176,18 @@ struct ComposeView: View {
                         Task { await viewModel.attachPhoto(item) }
                     }
 
-                    // Location — disabled until Phase 4
+                    // Location tag
                     Button {
-                        // TODO: Phase 4 — location tagging
+                        showingPlacePicker = true
                     } label: {
-                        Image(systemName: "location")
+                        Image(systemName: viewModel.selectedPlaceName != nil
+                              ? "location.fill" : "location")
                             .font(.title3)
+                            .foregroundStyle(viewModel.selectedPlaceName != nil
+                                             ? Color.blue : Color(.label))
                     }
-                    .disabled(true)
-                    .foregroundStyle(Color(.systemGray3))
+                    .accessibilityLabel(viewModel.selectedPlaceName != nil
+                                        ? "Remove location" : "Add location")
 
                     // Content warning toggle
                     Button {
@@ -271,6 +302,12 @@ struct ComposeView: View {
                 viewModel.visibility = draft.visibilityEnum
                 draftsStore.deleteDraft(draft)
                 showingDraftPicker = false
+            }
+        }
+        .sheet(isPresented: $showingPlacePicker) {
+            PlacePickerView { mapItem in
+                viewModel.attachPlace(mapItem)
+                showingPlacePicker = false
             }
         }
     }

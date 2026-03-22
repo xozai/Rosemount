@@ -6,7 +6,9 @@
 //
 // Swift 5.10 | iOS 17.0+
 
+import CoreLocation
 import Foundation
+import MapKit
 import Observation
 import PhotosUI
 import SwiftUI
@@ -47,6 +49,29 @@ final class ComposeViewModel {
 
     /// Whether the content-warning field is shown and active.
     var hasSpoilerText: Bool = false
+
+    // MARK: - Location
+
+    /// Human-readable place name to display in the composer and append to the post.
+    var selectedPlaceName: String? = nil
+
+    /// Privacy-snapped coordinate; included as a structured hashtag on post.
+    var selectedPlaceCoordinate: CLLocationCoordinate2D? = nil
+
+    /// Clears the attached location tag.
+    func clearLocation() {
+        selectedPlaceName = nil
+        selectedPlaceCoordinate = nil
+    }
+
+    /// Attaches a place picked from `PlacePickerView`.
+    func attachPlace(_ mapItem: MKMapItem) {
+        let name = mapItem.name ?? mapItem.placemark.locality ?? "Unknown place"
+        selectedPlaceName = name
+        // Grid-snap the coordinate to ~100 m for privacy.
+        let snapped = CoordinateSnapper.snap(mapItem.placemark.coordinate)
+        selectedPlaceCoordinate = snapped
+    }
 
     // MARK: - Media Attachments
 
@@ -161,9 +186,18 @@ final class ComposeViewModel {
         let spoiler = hasSpoilerText ? spoilerText.trimmingCharacters(in: .whitespacesAndNewlines) : ""
 
         do {
-            let fullContent = replyToMention + content
+            var body = replyToMention + content
+            if let name = selectedPlaceName {
+                if let coord = selectedPlaceCoordinate {
+                    let lat = String(format: "%.4f", coord.latitude)
+                    let lon = String(format: "%.4f", coord.longitude)
+                    body += "\n\n📍 \(name)\n#location:\(lat),\(lon)"
+                } else {
+                    body += "\n\n📍 \(name)"
+                }
+            }
             _ = try await client.createStatus(
-                content: fullContent,
+                content: body,
                 visibility: visibility,
                 inReplyToId: inReplyToId,
                 spoilerText: spoiler.isEmpty ? nil : spoiler,
@@ -174,6 +208,8 @@ final class ComposeViewModel {
             spoilerText = ""
             hasSpoilerText = false
             attachments = []
+            selectedPlaceName = nil
+            selectedPlaceCoordinate = nil
             didPost = true
         } catch {
             self.error = error
@@ -193,6 +229,8 @@ final class ComposeViewModel {
         hasSpoilerText = false
         visibility = .public
         attachments = []
+        selectedPlaceName = nil
+        selectedPlaceCoordinate = nil
         error = nil
         didPost = false
         isPosting = false

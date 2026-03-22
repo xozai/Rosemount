@@ -168,6 +168,24 @@ final class VoiceRoomViewModel: WebRTCSignalingDelegate {
                     isModerator: speakers[idx].isModerator, handRaised: true
                 )
             }
+        case .lowerHand:
+            if let idx = speakers.firstIndex(where: { $0.account.id == message.senderId }) {
+                speakers[idx] = VoiceRoomSpeaker(
+                    id: speakers[idx].id, account: speakers[idx].account,
+                    isMuted: speakers[idx].isMuted, isSpeaking: speakers[idx].isSpeaking,
+                    isModerator: speakers[idx].isModerator, handRaised: false
+                )
+            }
+        case .promote:
+            // A listener was promoted to speaker — refresh room to get updated speaker list.
+            Task { await refreshRoom() }
+        case .kick:
+            // Current user was removed from the room.
+            if message.targetId == credential?.id.uuidString {
+                isConnected = false
+            } else {
+                speakers.removeAll { $0.account.id == message.targetId }
+            }
         default:
             Task { await refreshRoom() }
         }
