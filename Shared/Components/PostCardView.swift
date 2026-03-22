@@ -105,6 +105,13 @@ struct PostCardView: View {
 
             Divider()
         }
+        .postCardAccessibility(
+            authorName: (status.reblog?.account ?? status.account).displayName,
+            relativeTime: relativeTimestamp(from: status.createdAt),
+            content: stripHTML((status.reblog ?? status).content),
+            favouritesCount: status.favouritesCount,
+            repliesCount: status.repliesCount
+        )
         .contextMenu {
             moderationMenu(for: status.reblog ?? status)
         }
@@ -147,15 +154,19 @@ struct PostCardView: View {
             Image(systemName: "arrow.2.squarepath")
                 .font(.caption)
                 .foregroundStyle(.secondary)
+                .accessibilityHidden(true)
 
             Text("\(account.displayName) boosted")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
+                .dynamicTypeClamped(.xSmall ... .accessibility2)
         }
         .padding(.horizontal, 16)
         .padding(.top, 10)
         .padding(.bottom, 2)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(account.displayName) boosted")
     }
 
     // MARK: - Author Row
@@ -167,20 +178,26 @@ struct PostCardView: View {
                 .font(.subheadline)
                 .fontWeight(.semibold)
                 .lineLimit(1)
+                .dynamicTypeClamped(.xSmall ... .accessibility2)
 
             Text("@\(account.acct)")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
+                .dynamicTypeClamped(.xSmall ... .accessibility2)
+                .accessibilityHidden(true) // combined into postCardAccessibility label
 
             Text("·")
                 .foregroundStyle(.secondary)
                 .font(.subheadline)
+                .accessibilityHidden(true)
 
             Text(relativeTimestamp(from: status.createdAt))
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
+                .dynamicTypeClamped(.xSmall ... .accessibility2)
+                .accessibilityHidden(true)
 
             Spacer(minLength: 0)
         }
@@ -223,7 +240,8 @@ struct PostCardView: View {
                 count: status.repliesCount,
                 icon: "bubble.right",
                 isActive: false,
-                activeColor: .accentColor
+                activeColor: .accentColor,
+                accessibilityLabel: "\(status.repliesCount) \(status.repliesCount == 1 ? "reply" : "replies")"
             ) {
                 onReply?()
             }
@@ -235,7 +253,10 @@ struct PostCardView: View {
                 count: status.reblogsCount,
                 icon: "arrow.2.squarepath",
                 isActive: status.reblogged,
-                activeColor: .green
+                activeColor: .green,
+                accessibilityLabel: status.reblogged
+                    ? "Boosted, \(status.reblogsCount) boosts"
+                    : "\(status.reblogsCount) \(status.reblogsCount == 1 ? "boost" : "boosts")"
             ) {
                 onBoost?()
             }
@@ -247,7 +268,10 @@ struct PostCardView: View {
                 count: status.favouritesCount,
                 icon: status.favourited ? "heart.fill" : "heart",
                 isActive: status.favourited,
-                activeColor: .red
+                activeColor: .red,
+                accessibilityLabel: status.favourited
+                    ? "Liked, \(status.favouritesCount) likes"
+                    : "\(status.favouritesCount) \(status.favouritesCount == 1 ? "like" : "likes")"
             ) {
                 onFavourite?()
             }
@@ -260,6 +284,7 @@ struct PostCardView: View {
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
+            .accessibilityLabel("Share post")
         }
     }
 
@@ -269,6 +294,7 @@ struct PostCardView: View {
         icon: String,
         isActive: Bool,
         activeColor: Color,
+        accessibilityLabel: String,
         action: @escaping () -> Void
     ) -> some View {
         Button(action: action) {
@@ -278,11 +304,13 @@ struct PostCardView: View {
                 if count > 0 {
                     Text(compactCount(count))
                         .font(.subheadline)
+                        .dynamicTypeClamped(.xSmall ... .accessibility2)
                 }
             }
             .foregroundStyle(isActive ? activeColor : .secondary)
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(accessibilityLabel)
     }
 
     // MARK: - Moderation

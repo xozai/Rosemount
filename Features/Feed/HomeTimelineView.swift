@@ -68,6 +68,7 @@ struct HomeTimelineView: View {
                               ? "line.3.horizontal.decrease.circle"
                               : "line.3.horizontal.decrease.circle.fill")
                             .symbolRenderingMode(.hierarchical)
+                            .accessibilityLabel("Feed filter: \(viewModel.feedType.rawValue)")
                     }
                 }
             }

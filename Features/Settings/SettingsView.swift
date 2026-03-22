@@ -52,6 +52,10 @@ struct SettingsView: View {
                         LicensesView()
                     }
 
+                    NavigationLink("Accessibility Audit") {
+                        AccessibilityAuditView()
+                    }
+
                     Link("Privacy Policy", destination: URL(string: AppStoreConfig.privacyPolicyURL)!)
                     Link("Terms of Service", destination: URL(string: AppStoreConfig.marketingURL + "/terms")!)
                     Link("Support", destination: URL(string: AppStoreConfig.supportURL)!)

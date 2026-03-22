@@ -56,10 +56,6 @@ extension View {
 
 // MARK: - Image Accessibility
 
-extension AsyncImage {
-    // Usage: asyncImage.accessibilityImageLabel("Profile photo of Jane Doe")
-}
-
 extension View {
     func accessibilityImageLabel(_ label: String) -> some View {
         self
@@ -108,9 +104,10 @@ extension Color {
     static func accessibleGreen() -> Color { Color(red: 0.0, green: 0.55, blue: 0.2) }
 }
 
-// MARK: - Audit Checklist (Dev-time only)
+// MARK: - Audit Checklist
 
-#if DEBUG
+/// Accessibility audit checklist. Accessible via Settings → About → Accessibility Audit.
+/// Updated whenever a new flow is audited; .warning items track outstanding work.
 struct AccessibilityAuditView: View {
     struct AuditItem: Identifiable {
         let id = UUID()
@@ -122,40 +119,60 @@ struct AccessibilityAuditView: View {
     }
 
     let items: [AuditItem] = [
-        AuditItem(category: "VoiceOver", item: "All interactive elements have accessibility labels", status: .pass),
+        AuditItem(category: "VoiceOver", item: "Post cards have combined label with author, time, content", status: .pass),
+        AuditItem(category: "VoiceOver", item: "Action bar buttons (like, boost, reply) have accessibility labels", status: .pass),
+        AuditItem(category: "VoiceOver", item: "Boost header combined into single accessible element", status: .pass),
         AuditItem(category: "VoiceOver", item: "Custom actions provided for swipe gestures", status: .pass),
-        AuditItem(category: "VoiceOver", item: "Images have descriptive labels", status: .pass),
-        AuditItem(category: "Dynamic Type", item: "All text scales with Dynamic Type", status: .pass),
-        AuditItem(category: "Dynamic Type", item: "Layouts don't break at xxxLarge", status: .pass),
+        AuditItem(category: "VoiceOver", item: "Profile Settings gear button labelled", status: .pass),
+        AuditItem(category: "VoiceOver", item: "Home feed filter menu labelled with current state", status: .pass),
+        AuditItem(category: "VoiceOver", item: "Encryption lock badge in DMs labelled", status: .pass),
+        AuditItem(category: "VoiceOver", item: "Location chip in Compose labelled", status: .pass),
+        AuditItem(category: "Dynamic Type", item: "Post card author row clamped to accessibility2", status: .pass),
+        AuditItem(category: "Dynamic Type", item: "Boost header text clamped to accessibility2", status: .pass),
+        AuditItem(category: "Dynamic Type", item: "Action bar counts clamped to accessibility2", status: .pass),
+        AuditItem(category: "Dynamic Type", item: "Layouts don't break at xxxLarge", status: .warning),
         AuditItem(category: "Color", item: "WCAG AA contrast for primary text (4.5:1)", status: .pass),
         AuditItem(category: "Color", item: "UI not dependent solely on color", status: .pass),
         AuditItem(category: "Motion", item: "Animations respect Reduce Motion", status: .pass),
         AuditItem(category: "Focus", item: "Keyboard/Switch Control focus order is logical", status: .pass),
         AuditItem(category: "Tap Target", item: "All tap targets ≥ 44×44pt", status: .pass),
-        AuditItem(category: "Hearing", item: "Audio content has visual equivalent", status: .warning),
+        AuditItem(category: "Hearing", item: "Audio content (Voice Rooms) has visual level indicator", status: .warning),
         AuditItem(category: "Cognitive", item: "Error messages are clear and actionable", status: .pass),
+        AuditItem(category: "Localization", item: "Localizable.strings scaffold created (en)", status: .pass),
+        AuditItem(category: "Localization", item: "All user-visible strings migrated to String(localized:)", status: .warning),
     ]
 
     var body: some View {
-        NavigationStack {
-            List {
-                ForEach(["VoiceOver", "Dynamic Type", "Color", "Motion", "Focus", "Tap Target", "Hearing", "Cognitive"], id: \.self) { category in
-                    Section(category) {
-                        ForEach(items.filter { $0.category == category }) { item in
-                            HStack {
-                                Image(systemName: item.status == .pass ? "checkmark.circle.fill"
-                                    : item.status == .fail ? "xmark.circle.fill"
-                                    : "exclamationmark.circle.fill")
+        List {
+            let categories = ["VoiceOver", "Dynamic Type", "Color", "Motion", "Focus", "Tap Target", "Hearing", "Cognitive", "Localization"]
+            ForEach(categories, id: \.self) { category in
+                Section(category) {
+                    ForEach(items.filter { $0.category == category }) { item in
+                        HStack {
+                            Image(systemName: item.status == .pass ? "checkmark.circle.fill"
+                                : item.status == .fail ? "xmark.circle.fill"
+                                : "exclamationmark.circle.fill")
+                            .foregroundStyle(item.status == .pass ? .green
+                                : item.status == .fail ? .red : .orange)
+                            .accessibilityHidden(true)
+
+                            Text(item.item)
+                                .font(.subheadline)
+
+                            Spacer()
+
+                            Text(item.status == .pass ? "Pass"
+                                : item.status == .fail ? "Fail" : "Warning")
+                                .font(.caption)
                                 .foregroundStyle(item.status == .pass ? .green
                                     : item.status == .fail ? .red : .orange)
-                                Text(item.item).font(.subheadline)
-                            }
                         }
+                        .accessibilityElement(children: .combine)
+                        .accessibilityLabel("\(item.item): \(item.status == .pass ? "Pass" : item.status == .fail ? "Fail" : "Warning")")
                     }
                 }
             }
-            .navigationTitle("Accessibility Audit")
         }
+        .navigationTitle("Accessibility Audit")
     }
 }
-#endif
