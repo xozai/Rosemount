@@ -15,6 +15,7 @@ struct ProfileView: View {
     @State private var showGridLayout = true
     @State private var showingFollowers = false
     @State private var showingFollowing = false
+    @State private var showingSettings = false
 
     private let gridColumns = [
         GridItem(.flexible(), spacing: 2),
@@ -89,7 +90,16 @@ struct ProfileView: View {
         .navigationTitle(viewModel.account?.displayName ?? "")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            if !viewModel.isOwnProfile, let account = viewModel.account {
+            if viewModel.isOwnProfile {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        showingSettings = true
+                    } label: {
+                        Image(systemName: "gearshape")
+                            .accessibilityLabel("Settings")
+                    }
+                }
+            } else if let account = viewModel.account {
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
                         Button(role: .destructive) {
@@ -116,6 +126,10 @@ struct ProfileView: View {
                     }
                 }
             }
+        }
+        .sheet(isPresented: $showingSettings) {
+            SettingsView()
+                .environment(authManager)
         }
         .task {
             guard let credential = authManager.activeAccount else { return }
