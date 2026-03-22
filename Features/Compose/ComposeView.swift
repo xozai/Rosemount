@@ -26,6 +26,11 @@ struct ComposeView: View {
     @Environment(AuthManager.self) private var authManager
     @Environment(\.dismiss) private var dismiss
 
+    // MARK: - Reply context (optional)
+
+    /// When set, the composer opens in reply mode pre-filled with the mention.
+    var replyTo: MastodonStatus? = nil
+
     // MARK: - Focus
 
     @FocusState private var isContentFocused: Bool
@@ -39,6 +44,25 @@ struct ComposeView: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
+
+                // Reply-to banner
+                if !viewModel.replyToMention.isEmpty {
+                    HStack(spacing: 6) {
+                        Image(systemName: "arrowshape.turn.up.left")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Text("Replying to \(viewModel.replyToMention.trimmingCharacters(in: .whitespaces))")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                        Spacer(minLength: 0)
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.top, 10)
+                    .padding(.bottom, 2)
+
+                    Divider()
+                }
 
                 // Content warning field (shown above the main editor when active)
                 if viewModel.hasSpoilerText {
@@ -152,7 +176,7 @@ struct ComposeView: View {
 
                 Spacer()
             }
-            .navigationTitle("New Post")
+            .navigationTitle(viewModel.inReplyToId != nil ? "Reply" : "New Post")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 // Cancel
@@ -196,6 +220,7 @@ struct ComposeView: View {
         .task {
             guard let account = authManager.activeAccount else { return }
             viewModel.setup(with: account)
+            if let replyTo { viewModel.setupReply(to: replyTo) }
             isContentFocused = true
         }
         .onChange(of: viewModel.didPost) { _, posted in

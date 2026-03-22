@@ -25,6 +25,15 @@ final class ComposeViewModel {
 
     private static let characterLimit = 500
 
+    // MARK: - Reply Context
+
+    /// When non-nil, this post is a reply to the given status ID.
+    var inReplyToId: String? = nil
+
+    /// The @acct string that will be pre-pended to the reply body (e.g. "@user@mastodon.social ").
+    /// Displayed as a non-editable label so it counts toward the character limit.
+    var replyToMention: String = ""
+
     // MARK: - Draft State
 
     /// The main post body text.
@@ -61,9 +70,9 @@ final class ComposeViewModel {
     // MARK: - Computed Properties
 
     /// Total characters that count toward the limit.
-    /// Mastodon counts CW text and body text together.
+    /// Mastodon counts CW text, mention prefix, and body text together.
     var characterCount: Int {
-        content.count + (hasSpoilerText ? spoilerText.count : 0)
+        replyToMention.count + content.count + (hasSpoilerText ? spoilerText.count : 0)
     }
 
     /// Characters remaining before hitting the server limit.
@@ -93,6 +102,18 @@ final class ComposeViewModel {
     func setup(with credential: AccountCredential) {
         // MastodonAPIClient — defined in Core/Mastodon/MastodonAPIClient.swift
         client = MastodonAPIClient(credential: credential)
+    }
+
+    /// Pre-configures the view-model as a reply to an existing status.
+    ///
+    /// Sets `inReplyToId`, mirrors the status's visibility (capped at `.public`),
+    /// and pre-fills `replyToMention` so the mention counts toward the character limit.
+    func setupReply(to status: MastodonStatus) {
+        inReplyToId = status.id
+        // Mirror the original post's visibility; direct replies stay direct.
+        visibility = status.visibility == .direct ? .direct : status.visibility
+        let acct = status.account.acct
+        replyToMention = "@\(acct) "
     }
 
     // MARK: - Media Upload
@@ -140,9 +161,11 @@ final class ComposeViewModel {
         let spoiler = hasSpoilerText ? spoilerText.trimmingCharacters(in: .whitespacesAndNewlines) : ""
 
         do {
+            let fullContent = replyToMention + content
             _ = try await client.createStatus(
-                content: content,
+                content: fullContent,
                 visibility: visibility,
+                inReplyToId: inReplyToId,
                 spoilerText: spoiler.isEmpty ? nil : spoiler,
                 mediaIds: attachments.map(\.id)
             )
@@ -163,6 +186,8 @@ final class ComposeViewModel {
 
     /// Resets all draft state without posting.
     func discardDraft() {
+        inReplyToId = nil
+        replyToMention = ""
         content = ""
         spoilerText = ""
         hasSpoilerText = false

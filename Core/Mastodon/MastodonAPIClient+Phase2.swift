@@ -168,12 +168,15 @@ extension MastodonAPIClient {
     ///   - note: New bio / note (plain text; the server converts it to HTML).
     ///   - avatarData: JPEG or PNG image data for the avatar.
     ///   - headerData: JPEG or PNG image data for the header banner.
+    ///   - fields: Up to 4 profile metadata fields as (name, value) pairs.
+    ///     Sent as `fields_attributes[i][name]` / `fields_attributes[i][value]`.
     /// - Returns: The updated `MastodonAccount` entity.
     func updateCredentials(
         displayName: String?,
         note: String?,
         avatarData: Data?,
-        headerData: Data?
+        headerData: Data?,
+        fields: [(name: String, value: String)]? = nil
     ) async throws -> MastodonAccount {
         let boundary = "RosemountP2Boundary-\(UUID().uuidString)"
         let url = p2BuildURL("/api/v1/accounts/update_credentials")
@@ -211,6 +214,13 @@ extension MastodonAPIClient {
         if let note        { appendText(name: "note",         value: note) }
         if let avatarData  { appendFile(name: "avatar",  filename: "avatar.jpg",  mimeType: "image/jpeg", fileData: avatarData) }
         if let headerData  { appendFile(name: "header",  filename: "header.jpg",  mimeType: "image/jpeg", fileData: headerData) }
+        // Profile metadata fields — Mastodon accepts up to 4.
+        if let fields {
+            for (i, field) in fields.prefix(4).enumerated() {
+                appendText(name: "fields_attributes[\(i)][name]",  value: field.name)
+                appendText(name: "fields_attributes[\(i)][value]", value: field.value)
+            }
+        }
 
         body.append("--\(boundary)--\r\n".p2UTF8)
         req.httpBody = body

@@ -22,6 +22,7 @@ struct HomeTimelineView: View {
     // MARK: - State
 
     @State private var viewModel = HomeTimelineViewModel()
+    @State private var replyingTo: MastodonStatus? = nil
     @Environment(AuthManager.self) private var authManager
 
     // MARK: - Body
@@ -83,6 +84,11 @@ struct HomeTimelineView: View {
                 await viewModel.refresh()
             }
         }
+        // Reply composer sheet
+        .sheet(item: $replyingTo) { status in
+            ComposeView(replyTo: status)
+                .environment(authManager)
+        }
     }
 
     // MARK: - Subviews
@@ -103,7 +109,7 @@ struct HomeTimelineView: View {
                                 Task { await viewModel.boost(status) }
                             },
                             onReply: {
-                                // TODO: Phase 2 — reply composer
+                                replyingTo = status
                             }
                         )
                         .tint(.primary)

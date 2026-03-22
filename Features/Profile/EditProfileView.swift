@@ -26,6 +26,8 @@ final class EditProfileViewModel {
 
     var displayName: String = ""
     var bio: String = ""
+    /// Editable profile metadata fields (Mastodon supports up to 4).
+    var profileFields: [(name: String, value: String)] = []
     var avatarImage: UIImage? = nil
     var headerImage: UIImage? = nil
     var isSaving: Bool = false
@@ -43,6 +45,10 @@ final class EditProfileViewModel {
         displayName = account.displayName
         // Strip any HTML from the bio — the server returns note as HTML.
         bio = stripHTML(account.note)
+        // Pre-populate profile fields, stripping any HTML from values.
+        profileFields = account.fields.map { (name: $0.name, value: stripHTML($0.value)) }
+        // Ensure at least one empty row so the user can add a field immediately.
+        if profileFields.isEmpty { profileFields = [("", "")] }
         client = MastodonAPIClient(
             instanceURL: credential.instanceURL,
             accessToken: credential.accessToken
@@ -62,11 +68,14 @@ final class EditProfileViewModel {
         let headerJPEG = headerImage?.jpegData(compressionQuality: 0.85)
 
         do {
+            // Filter out entirely-empty rows before sending.
+            let nonEmptyFields = profileFields.filter { !$0.name.isEmpty || !$0.value.isEmpty }
             _ = try await client.updateCredentials(
                 displayName: displayName,
                 note: bio,
                 avatarData: avatarJPEG,
-                headerData: headerJPEG
+                headerData: headerJPEG,
+                fields: nonEmptyFields.isEmpty ? nil : nonEmptyFields
             )
             didSave = true
         } catch {
@@ -132,11 +141,48 @@ struct EditProfileView: View {
                     Text("Profile")
                 }
 
-                // ── Additional ────────────────────────────────────────────
+                // ── Profile fields ────────────────────────────────────────
                 Section {
-                    Text("Profile fields, verification links, and pronouns\nare coming in Phase 3.")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
+                    ForEach(viewModel.profileFields.indices, id: \.self) { i in
+                        HStack(spacing: 8) {
+                            TextField("Label", text: Binding(
+                                get: { viewModel.profileFields[i].name },
+                                set: { viewModel.profileFields[i].name = $0 }
+                            ))
+                            .frame(width: 100)
+                            .foregroundStyle(.secondary)
+                            .autocorrectionDisabled()
+
+                            Divider()
+
+                            TextField("Content", text: Binding(
+                                get: { viewModel.profileFields[i].value },
+                                set: { viewModel.profileFields[i].value = $0 }
+                            ))
+                            .autocorrectionDisabled()
+                        }
+                    }
+                    .onDelete { indexSet in
+                        viewModel.profileFields.remove(atOffsets: indexSet)
+                        // Keep at least one row visible.
+                        if viewModel.profileFields.isEmpty {
+                            viewModel.profileFields = [("", "")]
+                        }
+                    }
+
+                    if viewModel.profileFields.count < 4 {
+                        Button {
+                            viewModel.profileFields.append(("", ""))
+                        } label: {
+                            Label("Add field", systemImage: "plus.circle")
+                                .font(.subheadline)
+                        }
+                    }
+                } header: {
+                    Text("Profile fields")
+                } footer: {
+                    Text("Up to 4 key–value fields shown on your profile. URLs are automatically verified.")
+                        .font(.caption)
                 }
             }
             .navigationTitle("Edit Profile")
