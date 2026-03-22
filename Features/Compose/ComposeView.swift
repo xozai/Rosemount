@@ -39,6 +39,12 @@ struct ComposeView: View {
 
     @State private var selectedPhoto: PhotosPickerItem?
 
+    // MARK: - Draft management
+
+    @State private var showingDiscardAlert = false
+    @State private var showingDraftPicker = false
+    private let draftsStore = OfflineStore.shared
+
     // MARK: - Body
 
     var body: some View {
@@ -179,11 +185,27 @@ struct ComposeView: View {
             .navigationTitle(viewModel.inReplyToId != nil ? "Reply" : "New Post")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                // Cancel
+                // Cancel — offer to save draft if content exists
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") {
-                        viewModel.discardDraft()
-                        dismiss()
+                        let hasContent = !viewModel.content
+                            .trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                        if hasContent {
+                            showingDiscardAlert = true
+                        } else {
+                            viewModel.discardDraft()
+                            dismiss()
+                        }
+                    }
+                }
+
+                // Drafts picker button
+                ToolbarItem(placement: .topBarLeading) {
+                    Button {
+                        showingDraftPicker = true
+                    } label: {
+                        Image(systemName: "doc.text")
+                            .accessibilityLabel("Drafts")
                     }
                 }
 
@@ -225,6 +247,31 @@ struct ComposeView: View {
         }
         .onChange(of: viewModel.didPost) { _, posted in
             if posted { dismiss() }
+        }
+        .confirmationDialog("Save draft?", isPresented: $showingDiscardAlert, titleVisibility: .visible) {
+            Button("Save Draft") {
+                draftsStore.saveDraft(DraftPost(
+                    content: viewModel.content,
+                    visibility: viewModel.visibility.rawValue
+                ))
+                viewModel.discardDraft()
+                dismiss()
+            }
+            Button("Discard", role: .destructive) {
+                viewModel.discardDraft()
+                dismiss()
+            }
+            Button("Keep Editing", role: .cancel) {}
+        } message: {
+            Text("Your post will be saved so you can finish it later.")
+        }
+        .sheet(isPresented: $showingDraftPicker) {
+            DraftPickerView { draft in
+                viewModel.content = draft.content
+                viewModel.visibility = draft.visibilityEnum
+                draftsStore.deleteDraft(draft)
+                showingDraftPicker = false
+            }
         }
     }
 

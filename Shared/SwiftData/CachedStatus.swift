@@ -10,11 +10,11 @@
 import Foundation
 import SwiftData
 
-// MARK: - CachedStatus
+// MastodonStatus      — Core/Mastodon/Models/MastodonStatus.swift
+// MastodonAccount     — Core/Mastodon/Models/MastodonStatus.swift
+// MastodonAttachment  — Core/Mastodon/Models/MastodonStatus.swift
 
-// TODO: MastodonStatus  — defined in Core/Mastodon/Models/MastodonStatus.swift
-// TODO: MastodonAccount — defined in Core/Mastodon/Models/MastodonStatus.swift
-// TODO: MastodonAttachment — defined in Core/Mastodon/Models/MastodonStatus.swift
+// MARK: - CachedStatus
 
 @Model
 final class CachedStatus {
@@ -92,6 +92,9 @@ final class CachedStatus {
     /// Non-nil when `timelineType == "community"`.
     var communityId: String?
 
+    /// Position within the cached feed page; used for stable in-order reads.
+    var sortOrder: Int
+
     // MARK: - Init
 
     init(
@@ -117,6 +120,7 @@ final class CachedStatus {
         mediaAttachmentsJSON: String? = nil,
         timelineType: String,
         communityId: String? = nil,
+        sortOrder: Int = 0,
         fetchedAt: Date = Date()
     ) {
         self.id                   = id
@@ -141,6 +145,7 @@ final class CachedStatus {
         self.mediaAttachmentsJSON = mediaAttachmentsJSON
         self.timelineType         = timelineType
         self.communityId          = communityId
+        self.sortOrder            = sortOrder
         self.fetchedAt            = fetchedAt
     }
 }
@@ -160,7 +165,8 @@ extension CachedStatus {
     static func from(
         _ status: MastodonStatus,
         timelineType: String,
-        communityId: String? = nil
+        communityId: String? = nil,
+        sortOrder: Int = 0
     ) -> CachedStatus {
 
         // --- Encode media attachments to JSON ---
@@ -203,6 +209,7 @@ extension CachedStatus {
             mediaAttachmentsJSON: mediaJSON,
             timelineType:         timelineType,
             communityId:          communityId,
+            sortOrder:            sortOrder,
             fetchedAt:            Date()
         )
     }

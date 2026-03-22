@@ -1,5 +1,8 @@
 // Core/Offline/DraftPost.swift
 // SwiftData model for draft posts
+//
+// CachedStatus  — defined in Shared/SwiftData/CachedStatus.swift
+// PendingAction — defined below; used only by OfflineStore / BackgroundSyncService
 
 import Foundation
 import SwiftData
@@ -37,39 +40,6 @@ final class DraftPost {
 
     var visibilityEnum: MastodonVisibility {
         MastodonVisibility(rawValue: visibility) ?? .public
-    }
-}
-
-// MARK: - Cached Timeline Status
-
-@Model
-final class CachedStatus {
-    var id: String
-    var accountId: String
-    var accountHandle: String
-    var accountDisplayName: String
-    var accountAvatarURL: String
-    var content: String
-    var createdAt: Date
-    var favouritesCount: Int
-    var reblogsCount: Int
-    var repliesCount: Int
-    var timelineType: String   // "home", "local", "community_slug"
-    var sortOrder: Int
-
-    init(from status: MastodonStatus, timelineType: String, sortOrder: Int) {
-        self.id = status.id
-        self.accountId = status.account.id
-        self.accountHandle = status.account.acct
-        self.accountDisplayName = status.account.displayName
-        self.accountAvatarURL = status.account.avatar
-        self.content = status.content
-        self.createdAt = ISO8601DateFormatter().date(from: status.createdAt) ?? Date()
-        self.favouritesCount = status.favouritesCount
-        self.reblogsCount = status.reblogsCount
-        self.repliesCount = status.repliesCount
-        self.timelineType = timelineType
-        self.sortOrder = sortOrder
     }
 }
 

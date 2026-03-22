@@ -1,10 +1,17 @@
 // Core/Offline/BackgroundSyncService.swift
 // BGAppRefreshTask and BGProcessingTask for background sync
+//
+// DraftPost / PendingAction — Core/Offline/DraftPost.swift
+// OfflineStore              — Core/Offline/OfflineStore.swift
+// MastodonAPIClient         — Core/Mastodon/MastodonAPIClient.swift
 
 import BackgroundTasks
 import Foundation
 import Network
+import OSLog
 import Observation
+
+private let logger = Logger(subsystem: "social.rosemount", category: "BackgroundSync")
 
 // MARK: - Network Monitor
 
@@ -48,14 +55,19 @@ final class BackgroundSyncService {
         BGTaskScheduler.shared.register(forTaskWithIdentifier: syncTaskId, using: nil) { task in
             Self.shared.handleProcessingTask(task: task as! BGProcessingTask)
         }
+        logger.info("Background tasks registered.")
     }
 
     // MARK: Scheduling
 
     func scheduleAppRefresh() {
         let request = BGAppRefreshTaskRequest(identifier: Self.refreshTaskId)
-        request.earliestBeginDate = Date(timeIntervalSinceNow: 15 * 60) // 15 minutes
-        try? BGTaskScheduler.shared.submit(request)
+        request.earliestBeginDate = Date(timeIntervalSinceNow: 15 * 60)
+        do {
+            try BGTaskScheduler.shared.submit(request)
+        } catch {
+            logger.error("scheduleAppRefresh failed: \(error.localizedDescription)")
+        }
     }
 
     func scheduleProcessingSync() {
@@ -63,23 +75,31 @@ final class BackgroundSyncService {
         request.earliestBeginDate = Date(timeIntervalSinceNow: 60)
         request.requiresNetworkConnectivity = true
         request.requiresExternalPower = false
-        try? BGTaskScheduler.shared.submit(request)
+        do {
+            try BGTaskScheduler.shared.submit(request)
+        } catch {
+            logger.error("scheduleProcessingSync failed: \(error.localizedDescription)")
+        }
     }
 
     // MARK: Handlers
 
     private func handleAppRefresh(task: BGAppRefreshTask) {
-        scheduleAppRefresh() // Re-schedule for next time
+        scheduleAppRefresh()
 
         let syncTask = Task {
             await syncPendingActions()
         }
 
-        task.expirationHandler = { syncTask.cancel() }
+        task.expirationHandler = {
+            syncTask.cancel()
+            logger.warning("BGAppRefreshTask expired before completion.")
+        }
 
         Task {
             await syncTask.value
             task.setTaskCompleted(success: true)
+            logger.info("BGAppRefreshTask completed.")
         }
     }
 
@@ -89,11 +109,15 @@ final class BackgroundSyncService {
             await refreshTimelineCache()
         }
 
-        task.expirationHandler = { syncTask.cancel() }
+        task.expirationHandler = {
+            syncTask.cancel()
+            logger.warning("BGProcessingTask expired before completion.")
+        }
 
         Task {
             await syncTask.value
             task.setTaskCompleted(success: true)
+            logger.info("BGProcessingTask completed.")
         }
     }
 
@@ -101,11 +125,18 @@ final class BackgroundSyncService {
 
     @MainActor
     func syncPendingActions() async {
-        guard NetworkMonitor.shared.isConnected else { return }
+        guard NetworkMonitor.shared.isConnected else {
+            logger.debug("syncPendingActions skipped — offline.")
+            return
+        }
         guard let credential = AuthManager.shared.activeAccount else { return }
 
         let store = OfflineStore.shared
         let pending = store.allPendingActions()
+
+        guard !pending.isEmpty else { return }
+        logger.info("Syncing \(pending.count) pending action(s).")
+
         let client = MastodonAPIClient(instanceURL: credential.instanceURL, accessToken: credential.accessToken)
 
         for action in pending {
@@ -114,18 +145,27 @@ final class BackgroundSyncService {
                 case "favourite":
                     _ = try await client.favouriteStatus(id: action.targetId)
                     store.removePendingAction(action)
+                    logger.debug("Synced favourite for \(action.targetId)")
                 case "boost":
                     _ = try await client.boostStatus(id: action.targetId)
                     store.removePendingAction(action)
+                    logger.debug("Synced boost for \(action.targetId)")
                 case "follow":
                     _ = try await client.followAccount(id: action.targetId)
                     store.removePendingAction(action)
+                    logger.debug("Synced follow for \(action.targetId)")
                 default:
-                    store.removePendingAction(action) // Unknown action — discard
+                    logger.warning("Unknown pending action type '\(action.type)' — discarding.")
+                    store.removePendingAction(action)
                 }
             } catch {
-                // Increment retry count; remove if too many failures
-                if action.retryCount >= 3 { store.removePendingAction(action) }
+                action.retryCount += 1
+                if action.retryCount >= 3 {
+                    logger.error("Pending action '\(action.type)' for \(action.targetId) failed after 3 attempts — discarding. Error: \(error.localizedDescription)")
+                    store.removePendingAction(action)
+                } else {
+                    logger.warning("Pending action '\(action.type)' for \(action.targetId) failed (attempt \(action.retryCount)/3): \(error.localizedDescription)")
+                }
             }
         }
     }
@@ -137,8 +177,13 @@ final class BackgroundSyncService {
 
         let client = MastodonAPIClient(instanceURL: credential.instanceURL, accessToken: credential.accessToken)
         let store = OfflineStore.shared
-        if let statuses = try? await client.homeTimeline(maxId: nil, sinceId: nil, limit: 40) {
+
+        do {
+            let statuses = try await client.homeTimeline(maxId: nil, sinceId: nil, limit: 40)
             store.cacheStatuses(statuses, timelineType: "home")
+            logger.info("Timeline cache refreshed with \(statuses.count) statuses.")
+        } catch {
+            logger.error("refreshTimelineCache failed: \(error.localizedDescription)")
         }
     }
 }
@@ -152,8 +197,14 @@ final class DraftsViewModel {
     private let store = OfflineStore.shared
 
     func load() { drafts = store.allDrafts() }
-    func delete(_ draft: DraftPost) { store.deleteDraft(draft); load() }
+
+    func delete(_ draft: DraftPost) {
+        store.deleteDraft(draft)
+        load()
+    }
+
     func save(content: String, visibility: MastodonVisibility, communitySlug: String?) {
+        guard !content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
         let draft = DraftPost(content: content, visibility: visibility.rawValue, communitySlug: communitySlug)
         store.saveDraft(draft)
         load()
