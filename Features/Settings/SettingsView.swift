@@ -23,17 +23,17 @@ struct SettingsView: View {
 
                 // MARK: Account
 
-                Section("Account") {
+                Section(String(localized: "settings.account.section")) {
                     if let account = authManager.activeAccount {
-                        LabeledContent("Handle", value: "@\(account.handle)")
-                        LabeledContent("Server", value: account.instanceURL.host ?? "")
+                        LabeledContent(String(localized: "settings.account.handle"), value: "@\(account.handle)")
+                        LabeledContent(String(localized: "settings.account.server"), value: account.instanceURL.host ?? "")
                     }
                 }
 
                 // MARK: Notifications
 
-                Section("Notifications") {
-                    Button("Open Notification Settings") {
+                Section(String(localized: "tab.notifications")) {
+                    Button(String(localized: "settings.notifications")) {
                         if let url = URL(string: UIApplication.openNotificationSettingsURLString) {
                             UIApplication.shared.open(url)
                         }
@@ -42,52 +42,52 @@ struct SettingsView: View {
 
                 // MARK: About
 
-                Section("About") {
-                    LabeledContent("Version") {
+                Section(String(localized: "settings.about.section")) {
+                    LabeledContent(String(localized: "settings.version")) {
                         Text("\(AppStoreConfig.currentVersion) (\(AppStoreConfig.buildNumber))")
                             .foregroundStyle(.secondary)
                     }
 
-                    NavigationLink("Open Source Licenses") {
+                    NavigationLink(String(localized: "settings.licenses")) {
                         LicensesView()
                     }
 
-                    NavigationLink("Accessibility Audit") {
+                    NavigationLink(String(localized: "settings.accessibility")) {
                         AccessibilityAuditView()
                     }
 
-                    Link("Privacy Policy", destination: URL(string: AppStoreConfig.privacyPolicyURL)!)
-                    Link("Terms of Service", destination: URL(string: AppStoreConfig.marketingURL + "/terms")!)
-                    Link("Support", destination: URL(string: AppStoreConfig.supportURL)!)
+                    Link(String(localized: "settings.privacy_policy"), destination: URL(string: AppStoreConfig.privacyPolicyURL)!)
+                    Link(String(localized: "settings.terms"), destination: URL(string: AppStoreConfig.marketingURL + "/terms")!)
+                    Link(String(localized: "settings.support"), destination: URL(string: AppStoreConfig.supportURL)!)
                 }
 
                 // MARK: Danger zone
 
                 Section {
-                    Button("Sign Out", role: .destructive) {
+                    Button(String(localized: "settings.sign_out"), role: .destructive) {
                         showingSignOutConfirm = true
                     }
                 }
             }
-            .navigationTitle("Settings")
+            .navigationTitle(String(localized: "settings.title"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }
+                    Button(String(localized: "action.done")) { dismiss() }
                 }
             }
             .confirmationDialog(
-                "Sign out of Rosemount?",
+                String(localized: "settings.sign_out.confirm"),
                 isPresented: $showingSignOutConfirm,
                 titleVisibility: .visible
             ) {
-                Button("Sign Out", role: .destructive) {
+                Button(String(localized: "settings.sign_out"), role: .destructive) {
                     authManager.signOut()
                     dismiss()
                 }
-                Button("Cancel", role: .cancel) {}
+                Button(String(localized: "compose.cancel"), role: .cancel) {}
             } message: {
-                Text("You can sign back in at any time.")
+                Text(String(localized: "settings.sign_out.message"))
             }
         }
     }

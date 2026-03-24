@@ -7,6 +7,7 @@
 //
 // Swift 5.10 | iOS 17.0+
 
+import MetricKit
 import OSLog
 import SwiftUI
 import SwiftData
@@ -23,6 +24,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
         BackgroundSyncService.registerTasks()
+        MetricKitReporter.shared.start()
 
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .badge, .sound]) { granted, error in
             if let error {

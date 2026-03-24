@@ -139,40 +139,91 @@ struct AccessibilityAuditView: View {
         AuditItem(category: "Hearing", item: "Audio content (Voice Rooms) has visual level indicator", status: .warning),
         AuditItem(category: "Cognitive", item: "Error messages are clear and actionable", status: .pass),
         AuditItem(category: "Localization", item: "Localizable.strings scaffold created (en)", status: .pass),
-        AuditItem(category: "Localization", item: "All user-visible strings migrated to String(localized:)", status: .warning),
+        AuditItem(category: "Localization", item: "Primary views migrated to String(localized:)", status: .pass),
+        AuditItem(category: "URL Health",   item: "Privacy Policy URL returns HTTP 200", status: .warning),
+        AuditItem(category: "URL Health",   item: "Terms of Service URL returns HTTP 200", status: .warning),
+        AuditItem(category: "URL Health",   item: "Support URL returns HTTP 200", status: .warning),
     ]
+
+    @StateObject private var urlChecker = URLHealthChecker()
 
     var body: some View {
         List {
-            let categories = ["VoiceOver", "Dynamic Type", "Color", "Motion", "Focus", "Tap Target", "Hearing", "Cognitive", "Localization"]
+            let categories = ["VoiceOver", "Dynamic Type", "Color", "Motion", "Focus", "Tap Target", "Hearing", "Cognitive", "Localization", "URL Health"]
             ForEach(categories, id: \.self) { category in
-                Section(category) {
-                    ForEach(items.filter { $0.category == category }) { item in
-                        HStack {
-                            Image(systemName: item.status == .pass ? "checkmark.circle.fill"
-                                : item.status == .fail ? "xmark.circle.fill"
-                                : "exclamationmark.circle.fill")
-                            .foregroundStyle(item.status == .pass ? .green
-                                : item.status == .fail ? .red : .orange)
-                            .accessibilityHidden(true)
-
-                            Text(item.item)
-                                .font(.subheadline)
-
-                            Spacer()
-
-                            Text(item.status == .pass ? "Pass"
-                                : item.status == .fail ? "Fail" : "Warning")
-                                .font(.caption)
-                                .foregroundStyle(item.status == .pass ? .green
-                                    : item.status == .fail ? .red : .orange)
+                Section(header: sectionHeader(for: category)) {
+                    if category == "URL Health" {
+                        urlHealthSection
+                    } else {
+                        ForEach(items.filter { $0.category == category }) { item in
+                            auditRow(item)
                         }
-                        .accessibilityElement(children: .combine)
-                        .accessibilityLabel("\(item.item): \(item.status == .pass ? "Pass" : item.status == .fail ? "Fail" : "Warning")")
                     }
                 }
             }
         }
         .navigationTitle("Accessibility Audit")
+    }
+
+    private func sectionHeader(for category: String) -> some View {
+        Text(category)
+    }
+
+    @ViewBuilder
+    private var urlHealthSection: some View {
+        ForEach(urlChecker.results) { result in
+            HStack {
+                Image(systemName: result.status.isHealthy ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
+                    .foregroundStyle(result.status.isHealthy ? .green : .orange)
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(result.label).font(.subheadline)
+                    Text(result.status.displayString)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+            }
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel("\(result.label): \(result.status.displayString)")
+        }
+
+        Button {
+            Task { await urlChecker.checkAll() }
+        } label: {
+            HStack {
+                if urlChecker.isChecking {
+                    ProgressView().scaleEffect(0.8)
+                } else {
+                    Image(systemName: "arrow.clockwise")
+                }
+                Text(urlChecker.isChecking ? "Checking…" : "Check All URLs")
+            }
+        }
+        .disabled(urlChecker.isChecking)
+    }
+
+    private func auditRow(_ item: AuditItem) -> some View {
+        HStack {
+            Image(systemName: item.status == .pass ? "checkmark.circle.fill"
+                : item.status == .fail ? "xmark.circle.fill"
+                : "exclamationmark.circle.fill")
+            .foregroundStyle(item.status == .pass ? .green
+                : item.status == .fail ? .red : .orange)
+            .accessibilityHidden(true)
+
+            Text(item.item)
+                .font(.subheadline)
+
+            Spacer()
+
+            Text(item.status == .pass ? "Pass"
+                : item.status == .fail ? "Fail" : "Warning")
+                .font(.caption)
+                .foregroundStyle(item.status == .pass ? .green
+                    : item.status == .fail ? .red : .orange)
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(item.item): \(item.status == .pass ? "Pass" : item.status == .fail ? "Fail" : "Warning")")
     }
 }

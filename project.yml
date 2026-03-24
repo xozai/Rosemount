@@ -30,6 +30,7 @@ targets:
       - path: Features
       - path: Shared
       - path: Resources/Assets.xcassets
+      - path: Resources/Localizable.strings
     info:
       path: App/Info.plist
       properties:
@@ -58,6 +59,12 @@ targets:
           - CFBundleURLName: com.rosemount.oauth
             CFBundleURLSchemes:
               - rosemount
+        # Export compliance: app uses standard encryption (AES-GCM via CryptoKit,
+        # Double Ratchet for E2E DMs). Qualifies for ERN exemption under EAR 740.17(b).
+        # Set ITSAppUsesNonExemptEncryption = NO because we use only Apple-provided
+        # CryptoKit which is pre-approved. If you add your own non-exempt crypto,
+        # change this to YES and file an ERN with BIS.
+        ITSAppUsesNonExemptEncryption: false
     entitlements:
       path: App/Rosemount.entitlements
       properties:

@@ -40,7 +40,7 @@ struct HomeTimelineView: View {
                     timelineList
                 }
             }
-            .navigationTitle("Home")
+            .navigationTitle(String(localized: "tab.home"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 // Leading: current account avatar
@@ -152,7 +152,7 @@ struct HomeTimelineView: View {
         VStack(spacing: 16) {
             ProgressView()
                 .scaleEffect(1.4)
-            Text("Loading your feed…")
+            Text(String(localized: "timeline.loading"))
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
         }
@@ -166,7 +166,7 @@ struct HomeTimelineView: View {
                 .font(.system(size: 48))
                 .foregroundStyle(.secondary)
 
-            Text("Couldn't load your feed")
+            Text(String(localized: "error.feed.load_failed"))
                 .font(.headline)
 
             Text(error.localizedDescription)
@@ -175,7 +175,7 @@ struct HomeTimelineView: View {
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 32)
 
-            Button("Try Again") {
+            Button(String(localized: "timeline.error.retry")) {
                 Task { await viewModel.refresh() }
             }
             .buttonStyle(.borderedProminent)
@@ -187,9 +187,9 @@ struct HomeTimelineView: View {
     /// Full-screen empty state shown when the timeline has no statuses.
     private var emptyView: some View {
         ContentUnavailableView(
-            "Your feed is empty",
+            String(localized: "timeline.empty.title"),
             systemImage: "bubble.left.and.bubble.right",
-            description: Text("Follow some people to get started.")
+            description: Text(String(localized: "timeline.empty.subtitle"))
         )
     }
 }

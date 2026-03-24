@@ -36,7 +36,7 @@ struct NotificationsView: View {
                 Divider()
                 notificationContent
             }
-            .navigationTitle("Notifications")
+            .navigationTitle(String(localized: "tab.notifications"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { toolbarContent }
             .task {
@@ -122,7 +122,7 @@ struct NotificationsView: View {
     private var loadingView: some View {
         VStack {
             Spacer()
-            ProgressView("Loading notifications…")
+            ProgressView(String(localized: "notifications.loading"))
                 .foregroundStyle(.secondary)
             Spacer()
         }
@@ -136,14 +136,14 @@ struct NotificationsView: View {
             Image(systemName: "exclamationmark.triangle")
                 .font(.system(size: 44))
                 .foregroundStyle(.secondary)
-            Text("Failed to load notifications")
+            Text(String(localized: "notifications.error.load_failed"))
                 .font(.headline)
             Text(error.localizedDescription)
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 32)
-            Button("Try Again") {
+            Button(String(localized: "timeline.error.retry")) {
                 Task { await viewModel.refresh() }
             }
             .buttonStyle(.borderedProminent)
@@ -183,26 +183,21 @@ struct NotificationsView: View {
 
     private var emptyStateTitle: String {
         switch viewModel.filter {
-        case .all:        return "No notifications yet"
-        case .mentions:   return "No mentions yet"
-        case .follows:    return "No follows yet"
-        case .boosts:     return "No boosts yet"
-        case .favourites: return "No favourites yet"
+        case .all:        return String(localized: "notifications.empty.all.title")
+        case .mentions:   return String(localized: "notifications.empty.mentions.title")
+        case .follows:    return String(localized: "notifications.empty.follows.title")
+        case .boosts:     return String(localized: "notifications.empty.boosts.title")
+        case .favourites: return String(localized: "notifications.empty.favourites.title")
         }
     }
 
     private var emptyStateSubtitle: String {
         switch viewModel.filter {
-        case .all:
-            return "When someone follows you, mentions you, or interacts with your posts you'll see it here."
-        case .mentions:
-            return "When someone mentions you in a post, it will appear here."
-        case .follows:
-            return "New followers and follow requests will appear here."
-        case .boosts:
-            return "When someone boosts one of your posts, it will appear here."
-        case .favourites:
-            return "When someone favourites one of your posts, it will appear here."
+        case .all:        return String(localized: "notifications.empty.all.subtitle")
+        case .mentions:   return String(localized: "notifications.empty.mentions.subtitle")
+        case .follows:    return String(localized: "notifications.empty.follows.subtitle")
+        case .boosts:     return String(localized: "notifications.empty.boosts.subtitle")
+        case .favourites: return String(localized: "notifications.empty.favourites.subtitle")
         }
     }
 
@@ -217,7 +212,7 @@ struct NotificationsView: View {
                 Image(systemName: "checkmark.circle")
             }
             .disabled(viewModel.notifications.isEmpty)
-            .accessibilityLabel("Mark all read")
+            .accessibilityLabel(String(localized: "notifications.mark_all_read"))
         }
     }
 }

@@ -94,7 +94,7 @@ struct ComposeView: View {
                         .scrollContentBackground(.hidden)
                         .overlay(alignment: .topLeading) {
                             if viewModel.content.isEmpty {
-                                Text("What's on your mind?")
+                                Text(String(localized: "compose.placeholder"))
                                     .foregroundStyle(Color(.placeholderText))
                                     .font(.body)
                                     .padding(.top, 8)
@@ -142,7 +142,7 @@ struct ComposeView: View {
                     HStack(spacing: 8) {
                         ProgressView()
                             .scaleEffect(0.8)
-                        Text("Uploading photo…")
+                        Text(String(localized: "compose.uploading"))
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
@@ -187,7 +187,8 @@ struct ComposeView: View {
                                              ? Color.blue : Color(.label))
                     }
                     .accessibilityLabel(viewModel.selectedPlaceName != nil
-                                        ? "Remove location" : "Add location")
+                                        ? String(localized: "compose.location.remove")
+                                        : String(localized: "compose.location.add"))
 
                     // Content warning toggle
                     Button {
@@ -213,12 +214,14 @@ struct ComposeView: View {
 
                 Spacer()
             }
-            .navigationTitle(viewModel.inReplyToId != nil ? "Reply" : "New Post")
+            .navigationTitle(viewModel.inReplyToId != nil
+                ? String(localized: "compose.reply.title")
+                : String(localized: "compose.new.title"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 // Cancel — offer to save draft if content exists
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") {
+                    Button(String(localized: "compose.cancel")) {
                         let hasContent = !viewModel.content
                             .trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                         if hasContent {
@@ -236,13 +239,13 @@ struct ComposeView: View {
                         showingDraftPicker = true
                     } label: {
                         Image(systemName: "doc.text")
-                            .accessibilityLabel("Drafts")
+                            .accessibilityLabel(String(localized: "drafts.title"))
                     }
                 }
 
                 // Post
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Post") {
+                    Button(String(localized: "compose.post")) {
                         Task { await viewModel.post() }
                     }
                     .fontWeight(.semibold)
@@ -254,12 +257,12 @@ struct ComposeView: View {
                 if viewModel.isPosting {
                     Color.black.opacity(0.1)
                         .ignoresSafeArea()
-                    ProgressView("Posting…")
+                    ProgressView(String(localized: "compose.posting"))
                         .padding(20)
                         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                 }
             }
-            .alert("Post Failed", isPresented: Binding(
+            .alert(String(localized: "compose.failed.title"), isPresented: Binding(
                 get: { viewModel.error != nil },
                 set: { if !$0 { viewModel.error = nil } }
             )) {
@@ -279,8 +282,8 @@ struct ComposeView: View {
         .onChange(of: viewModel.didPost) { _, posted in
             if posted { dismiss() }
         }
-        .confirmationDialog("Save draft?", isPresented: $showingDiscardAlert, titleVisibility: .visible) {
-            Button("Save Draft") {
+        .confirmationDialog(String(localized: "compose.draft.save_prompt"), isPresented: $showingDiscardAlert, titleVisibility: .visible) {
+            Button(String(localized: "compose.draft.save")) {
                 draftsStore.saveDraft(DraftPost(
                     content: viewModel.content,
                     visibility: viewModel.visibility.rawValue
@@ -288,13 +291,13 @@ struct ComposeView: View {
                 viewModel.discardDraft()
                 dismiss()
             }
-            Button("Discard", role: .destructive) {
+            Button(String(localized: "compose.draft.discard"), role: .destructive) {
                 viewModel.discardDraft()
                 dismiss()
             }
-            Button("Keep Editing", role: .cancel) {}
+            Button(String(localized: "compose.draft.keep_editing"), role: .cancel) {}
         } message: {
-            Text("Your post will be saved so you can finish it later.")
+            Text(String(localized: "compose.draft.save_message"))
         }
         .sheet(isPresented: $showingDraftPicker) {
             DraftPickerView { draft in
@@ -360,7 +363,7 @@ struct ComposeView: View {
                 .foregroundStyle(.orange)
                 .font(.subheadline)
 
-            TextField("Content warning…", text: $viewModel.spoilerText)
+            TextField(String(localized: "compose.cw.placeholder"), text: $viewModel.spoilerText)
                 .font(.subheadline)
                 .submitLabel(.next)
         }

@@ -16,10 +16,11 @@
 
 // MARK: - Home Timeline
 
-"timeline.empty.title"       = "Nothing here yet";
-"timeline.empty.subtitle"    = "Follow some people to fill your feed.";
-"timeline.error.retry"       = "Retry";
-"timeline.loading"           = "Loading timeline…";
+"timeline.empty.title"       = "Your feed is empty";
+"timeline.empty.subtitle"    = "Follow some people to get started.";
+"timeline.error.retry"       = "Try Again";
+"timeline.loading"           = "Loading your feed…";
+"error.feed.load_failed"     = "Couldn't load your feed";
 
 // MARK: - Compose
 
@@ -48,8 +49,19 @@
 
 // MARK: - Notifications
 
-"notifications.empty.title"    = "All caught up";
-"notifications.empty.subtitle" = "You have no new notifications.";
+"notifications.loading"                    = "Loading notifications…";
+"notifications.error.load_failed"          = "Failed to load notifications";
+"notifications.mark_all_read"              = "Mark all read";
+"notifications.empty.all.title"            = "No notifications yet";
+"notifications.empty.all.subtitle"         = "When someone follows you, mentions you, or interacts with your posts you'll see it here.";
+"notifications.empty.mentions.title"       = "No mentions yet";
+"notifications.empty.mentions.subtitle"    = "When someone mentions you in a post, it will appear here.";
+"notifications.empty.follows.title"        = "No follows yet";
+"notifications.empty.follows.subtitle"     = "New followers and follow requests will appear here.";
+"notifications.empty.boosts.title"         = "No boosts yet";
+"notifications.empty.boosts.subtitle"      = "When someone boosts one of your posts, it will appear here.";
+"notifications.empty.favourites.title"     = "No favourites yet";
+"notifications.empty.favourites.subtitle"  = "When someone favourites one of your posts, it will appear here.";
 
 // MARK: - Communities
 
@@ -87,16 +99,26 @@
 
 "settings.title"              = "Settings";
 "settings.account.section"    = "Account";
+"settings.account.handle"     = "Handle";
+"settings.account.server"     = "Server";
 "settings.notifications"      = "Open Notification Settings";
 "settings.about.section"      = "About";
 "settings.version"            = "Version";
 "settings.licenses"           = "Open Source Licenses";
+"settings.accessibility"      = "Accessibility Audit";
 "settings.privacy_policy"     = "Privacy Policy";
 "settings.terms"              = "Terms of Service";
 "settings.support"            = "Support";
 "settings.sign_out"           = "Sign Out";
 "settings.sign_out.confirm"   = "Sign out of Rosemount?";
 "settings.sign_out.message"   = "You can sign back in at any time.";
+
+// MARK: - Common Actions
+
+"action.done"    = "Done";
+"action.cancel"  = "Cancel";
+"action.ok"      = "OK";
+"action.retry"   = "Try Again";
 
 // MARK: - Accessibility
 
