@@ -7,8 +7,9 @@
 
 import SwiftUI
 
-// AuthManager — Core/Auth/AuthManager.swift
-// LicensesView — Features/Settings/LicensesView.swift
+// AuthManager      — Core/Auth/AuthManager.swift
+// LicensesView     — Features/Settings/LicensesView.swift
+// URLHealthChecker — Core/Rosemount/URLHealthChecker.swift
 
 struct SettingsView: View {
 
@@ -16,6 +17,7 @@ struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var showingSignOutConfirm = false
+    @StateObject private var healthChecker = URLHealthChecker()
 
     var body: some View {
         NavigationStack {
@@ -60,6 +62,33 @@ struct SettingsView: View {
                     Link(String(localized: "settings.terms"), destination: URL(string: AppStoreConfig.marketingURL + "/terms")!)
                     Link(String(localized: "settings.support"), destination: URL(string: AppStoreConfig.supportURL)!)
                 }
+
+                // MARK: Deployment Health (DEBUG builds only)
+
+                #if DEBUG
+                Section {
+                    ForEach(healthChecker.results) { result in
+                        HStack {
+                            Image(systemName: result.status.isHealthy ? "checkmark.circle.fill" : "xmark.circle.fill")
+                                .foregroundStyle(result.status.isHealthy ? .green : .red)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(result.label).font(.subheadline)
+                                Text(result.status.displayString)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                    Button(healthChecker.isChecking ? "Checking…" : "Run Health Checks") {
+                        Task { await healthChecker.checkAll() }
+                    }
+                    .disabled(healthChecker.isChecking)
+                } header: {
+                    Text("Deployment Health")
+                } footer: {
+                    Text(healthChecker.summary)
+                }
+                #endif
 
                 // MARK: Danger zone
 

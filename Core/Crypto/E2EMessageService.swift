@@ -51,8 +51,10 @@ actor E2EMessageService {
     private let identityKeyKeychainKey = "identity_private_key"
     private let signingKeyKeychainKey  = "identity_signing_key"
 
-    /// Encrypted-message prefix embedded into status content.
+    /// Encrypted-message prefix embedded into status content (full peer-verified session).
     static let encryptedPrefix = "🔒 [ENC]"
+    /// Prefix used when falling back to HKDF-derived keys without peer verification.
+    static let encryptedCompatPrefix = "🔒 [ENC-COMPAT]"
 
     // MARK: Initializer
 
@@ -174,7 +176,7 @@ actor E2EMessageService {
             throw E2EError.keyNotFound
         }
 
-        let remotePublicKey = try await fetchOrDerivePublicKey(for: recipient)
+        let (remotePublicKey, isCompatMode) = try await fetchOrDerivePublicKey(for: recipient)
 
         let session = try await sessionStore.session(
             for: recipient.id,
@@ -197,7 +199,8 @@ actor E2EMessageService {
         try await sessionStore.persistState(for: recipient.id, state: updatedState)
 
         let base64JSON = try encryptedMessage.encodeToBase64()
-        let wrappedContent = "\(Self.encryptedPrefix)\(base64JSON)"
+        let prefix = isCompatMode ? Self.encryptedCompatPrefix : Self.encryptedPrefix
+        let wrappedContent = "\(prefix)\(base64JSON)"
 
         return try await mastodonClient.createStatus(
             content: wrappedContent,
@@ -211,14 +214,17 @@ actor E2EMessageService {
     func decryptMessage(_ status: MastodonStatus) async throws -> String? {
         guard isEncrypted(status) else { return nil }
 
-        let prefixLength = Self.encryptedPrefix.utf16.count
+        let activePrefix = status.content.hasPrefix(Self.encryptedCompatPrefix)
+            ? Self.encryptedCompatPrefix
+            : Self.encryptedPrefix
+        let prefixLength = activePrefix.utf16.count
         guard status.content.utf16.count > prefixLength else {
             throw E2EError.decryptionFailed
         }
 
         let startIndex = status.content.index(
             status.content.startIndex,
-            offsetBy: Self.encryptedPrefix.count
+            offsetBy: activePrefix.count
         )
         let base64JSON = String(status.content[startIndex...])
 
@@ -234,7 +240,7 @@ actor E2EMessageService {
             throw E2EError.keyNotFound
         }
 
-        let remotePublicKey = try await fetchOrDerivePublicKey(for: status.account)
+        let (remotePublicKey, _) = try await fetchOrDerivePublicKey(for: status.account)
 
         let session = try await sessionStore.session(
             for: status.account.id,
@@ -258,24 +264,38 @@ actor E2EMessageService {
         return plaintext
     }
 
-    /// Returns `true` if the status content begins with the encrypted message prefix.
+    /// Returns `true` if the status content begins with either encrypted message prefix.
     func isEncrypted(_ status: MastodonStatus) -> Bool {
-        return status.content.hasPrefix(Self.encryptedPrefix)
+        return status.content.hasPrefix(Self.encryptedPrefix) ||
+               status.content.hasPrefix(Self.encryptedCompatPrefix)
+    }
+
+    /// Returns `true` if the status was encrypted using the HKDF fallback (no peer verification).
+    func isCompatMode(_ status: MastodonStatus) -> Bool {
+        return status.content.hasPrefix(Self.encryptedCompatPrefix)
     }
 
     // MARK: - Private Helpers
 
     /// Fetches the remote public key from the server; falls back to a deterministic
     /// HKDF derivation so sessions work before the server endpoint is deployed.
+    ///
+    /// Returns `(key, isCompatMode)` where `isCompatMode == true` means peer verification
+    /// was unavailable and the HKDF-derived fallback key was used.
     private func fetchOrDerivePublicKey(
         for account: MastodonAccount
-    ) async throws -> Curve25519.KeyAgreement.PublicKey {
-        if let bundle = try? await fetchPublicKeyBundle(for: account.id) {
-            // Verify the bundle signature before trusting the key.
-            if verifyBundleSignature(bundle) {
-                return try Curve25519.KeyAgreement.PublicKey(rawRepresentation: bundle.identityKey)
+    ) async throws -> (Curve25519.KeyAgreement.PublicKey, isCompatMode: Bool) {
+        do {
+            if let bundle = try await fetchPublicKeyBundle(for: account.id) {
+                // Verify the bundle signature before trusting the key.
+                if verifyBundleSignature(bundle) {
+                    let key = try Curve25519.KeyAgreement.PublicKey(rawRepresentation: bundle.identityKey)
+                    return (key, false)
+                }
+                logger.error("Bundle signature invalid for account \(account.id) — falling back to derived key.")
             }
-            logger.warning("Bundle signature invalid for account \(account.id) — falling back to derived key.")
+        } catch {
+            logger.error("Key bundle fetch failed for \(account.id): \(error.localizedDescription) — using HKDF fallback.")
         }
 
         // Fallback: derive a deterministic key from the account ID string so that
@@ -289,7 +309,7 @@ actor E2EMessageService {
             outputByteCount: 32
         )
         let rawBytes = derivedKey.withUnsafeBytes { Data($0) }
-        return try Curve25519.KeyAgreement.PublicKey(rawRepresentation: rawBytes)
+        return try (Curve25519.KeyAgreement.PublicKey(rawRepresentation: rawBytes), true)
     }
 
     /// Network fetch for a remote account's PublicKeyBundle.

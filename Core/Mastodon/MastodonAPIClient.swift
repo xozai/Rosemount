@@ -86,6 +86,12 @@ enum MastodonClientError: Error, LocalizedError {
     case httpError(statusCode: Int, body: String)
     case decodingError(underlying: Error)
     case unknown(underlying: Error)
+    /// HTTP 401 — token invalid or expired; triggers logout.
+    case unauthorized
+    /// HTTP 5xx — server-side error.
+    case serverError(code: Int)
+    /// HTTP 429 — rate limited; `retryAfter` seconds until reset.
+    case rateLimited(retryAfter: TimeInterval?)
 
     var errorDescription: String? {
         switch self {
@@ -97,6 +103,15 @@ enum MastodonClientError: Error, LocalizedError {
             return "Response decoding failed: \(err.localizedDescription)"
         case .unknown(let err):
             return err.localizedDescription
+        case .unauthorized:
+            return "Your session has expired. Please sign in again."
+        case .serverError(let code):
+            return "The server encountered an error (HTTP \(code)). Please try again later."
+        case .rateLimited(let retry):
+            if let retry {
+                return "You're doing that too fast. Please wait \(Int(retry)) seconds."
+            }
+            return "You're doing that too fast. Please try again later."
         }
     }
 }
@@ -397,10 +412,20 @@ actor MastodonAPIClient {
         return components.url!
     }
 
-    /// Throws `MastodonClientError.httpError` for non-2xx responses.
+    /// Throws a typed `MastodonClientError` for non-2xx responses.
     private func validateHTTPResponse(_ response: URLResponse, data: Data) throws {
         guard let http = response as? HTTPURLResponse else { return }
-        guard (200...299).contains(http.statusCode) else {
+        guard !(200...299).contains(http.statusCode) else { return }
+        switch http.statusCode {
+        case 401:
+            throw MastodonClientError.unauthorized
+        case 429:
+            let retryAfterHeader = http.value(forHTTPHeaderField: "Retry-After")
+            let retryAfter = retryAfterHeader.flatMap(TimeInterval.init)
+            throw MastodonClientError.rateLimited(retryAfter: retryAfter)
+        case 500...599:
+            throw MastodonClientError.serverError(code: http.statusCode)
+        default:
             let body = String(data: data, encoding: .utf8) ?? "<empty>"
             throw MastodonClientError.httpError(statusCode: http.statusCode, body: body)
         }

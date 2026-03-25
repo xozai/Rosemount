@@ -106,6 +106,14 @@ struct VoiceRoomView: View {
             } message: { err in
                 Text(err.localizedDescription)
             }
+            .alert(
+                "Voice Rooms Unavailable",
+                isPresented: $viewModel.signalingUnavailable
+            ) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text("Voice Rooms are not available right now. Please try again later.")
+            }
         }
         .task {
             if let account = authManager.activeAccount {

@@ -65,6 +65,9 @@ final class HomeTimelineViewModel {
     /// The API client configured for the current account.
     private var client: MastodonAPIClient? = nil
 
+    /// Whether the current account is the App Review demo account.
+    private(set) var isDemoMode: Bool = false
+
     // MARK: - Setup
 
     /// Configures the view-model for a specific authenticated account.
@@ -73,8 +76,10 @@ final class HomeTimelineViewModel {
     /// - Parameter credential: The active `AccountCredential`.
     ///   `AccountCredential` is defined in `Core/Auth/AuthManager.swift`.
     func setup(with credential: AccountCredential) {
-        // MastodonAPIClient — defined in Core/Mastodon/MastodonAPIClient.swift
-        client = MastodonAPIClient(instanceURL: credential.instanceURL, accessToken: credential.accessToken)
+        isDemoMode = credential.handle == "app-review-demo"
+        if !isDemoMode {
+            client = MastodonAPIClient(instanceURL: credential.instanceURL, accessToken: credential.accessToken)
+        }
         // Reset pagination state whenever the account changes.
         statuses = []
         oldestId = nil
@@ -93,8 +98,15 @@ final class HomeTimelineViewModel {
 
     /// Clears existing data and fetches the first page of the current timeline.
     func refresh() async {
-        guard let client else { return }
         guard !isLoading else { return }
+
+        if isDemoMode {
+            statuses = Self.demoStatuses
+            hasMore = false
+            return
+        }
+
+        guard let client else { return }
 
         isLoading = true
         error = nil
@@ -114,6 +126,9 @@ final class HomeTimelineViewModel {
             statuses = page
             oldestId = page.last?.id
             hasMore = !page.isEmpty
+        } catch MastodonClientError.unauthorized {
+            // Token is invalid — sign out so the user is returned to Onboarding.
+            AuthManager.shared.signOut()
         } catch {
             self.error = error
         }
@@ -228,5 +243,69 @@ final class HomeTimelineViewModel {
     private func applyServerUpdate(_ updated: MastodonStatus) {
         guard let index = statuses.firstIndex(where: { $0.id == updated.id }) else { return }
         statuses[index] = updated
+    }
+
+    // MARK: - Demo Mode Fixtures
+
+    private static let demoAccount = MastodonAccount(
+        id: "demo001",
+        username: "demo",
+        acct: "demo@mastodon.social",
+        displayName: "Rosemount Demo",
+        locked: false,
+        bot: false,
+        createdAt: "2024-01-01T00:00:00.000Z",
+        note: "<p>App Review demo account</p>",
+        url: "https://mastodon.social/@demo",
+        avatar: "",
+        avatarStatic: "",
+        header: "",
+        headerStatic: "",
+        followersCount: 42,
+        followingCount: 10,
+        statusesCount: 5,
+        emojis: [],
+        fields: []
+    )
+
+    private static let demoStatuses: [MastodonStatus] = [
+        makeDemoStatus(id: "d1", content: "<p>Welcome to Rosemount — your federated social network. Follow people, join communities, and stay connected across the web. 🌿</p>"),
+        makeDemoStatus(id: "d2", content: "<p>Voice Rooms let you start live audio conversations with your community. Tap the waveform icon to join a live room or start your own.</p>"),
+        makeDemoStatus(id: "d3", content: "<p>Stories disappear after 24 hours. Share moments from your day without them living on your profile forever.</p>"),
+        makeDemoStatus(id: "d4", content: "<p>All direct messages in Rosemount are end-to-end encrypted by default. Your conversations stay private. 🔒</p>"),
+        makeDemoStatus(id: "d5", content: "<p>Rosemount is built on ActivityPub — the open standard that powers Mastodon, Pixelfed, and thousands of other servers. Your account is yours.</p>"),
+    ]
+
+    private static func makeDemoStatus(id: String, content: String) -> MastodonStatus {
+        MastodonStatus(
+            id: id,
+            uri: "https://mastodon.social/users/demo/statuses/\(id)",
+            url: "https://mastodon.social/@demo/\(id)",
+            createdAt: "2026-03-25T10:00:00.000Z",
+            account: demoAccount,
+            content: content,
+            visibility: .public,
+            sensitive: false,
+            spoilerText: "",
+            mediaAttachments: [],
+            application: nil,
+            mentions: [],
+            tags: [],
+            emojis: [],
+            reblogsCount: 3,
+            favouritesCount: 12,
+            repliesCount: 1,
+            reblog: nil,
+            poll: nil,
+            card: nil,
+            language: "en",
+            text: nil,
+            editedAt: nil,
+            favourited: false,
+            reblogged: false,
+            muted: false,
+            bookmarked: false,
+            pinned: false
+        )
     }
 }

@@ -15,7 +15,7 @@ import Observation
 // AccountCredential     — defined in Core/Auth/AuthManager.swift
 // FederationPlatform    — defined in Core/Auth/AuthManager.swift
 // MastodonOAuthService  — defined in Core/Mastodon/MastodonOAuth.swift
-// PixelfedOAuthService  — defined in Core/Pixelfed/PixelfedOAuth.swift (TODO: define)
+// PixelfedOAuthService  — defined in Core/Pixelfed/PixelfedOAuth.swift
 
 // MARK: - OnboardingStep
 
@@ -48,6 +48,30 @@ final class OnboardingViewModel {
     private let mastodonOAuth = MastodonOAuthService()
     private let pixelfedOAuth = PixelfedOAuthService()
     private let rosemountAPI  = RosemountAPIClient()
+
+    // MARK: - App Review Demo Mode
+
+    /// Activates the hidden App Review demo mode.
+    ///
+    /// Triggered when the user types "rosemount-review" in the instance URL field.
+    /// Creates a local-only demo credential so reviewers can navigate all tabs
+    /// without a live server. The empty access token causes all API calls to fail
+    /// gracefully with 401, which the app handles via AuthManager.removeAccount.
+    func activateDemoMode() {
+        let demoCredential = AccountCredential(
+            handle: "app-review-demo",
+            instanceURL: URL(string: "https://mastodon.social")!,
+            accessToken: "",
+            tokenType: "Bearer",
+            scope: "read write follow",
+            platform: .mastodon,
+            actorURL: nil,
+            displayName: "App Review Demo",
+            avatarURL: nil
+        )
+        AuthManager.shared.addAccount(demoCredential)
+        step = .profileSetup
+    }
 
     // MARK: - URL Normalisation
 
@@ -86,6 +110,10 @@ final class OnboardingViewModel {
     ///
     /// - Parameter presentationAnchor: The window used to anchor the web auth UI.
     func signInWithMastodon(presentationAnchor: ASPresentationAnchor) async {
+        if instanceURLString.trimmingCharacters(in: .whitespacesAndNewlines) == "rosemount-review" {
+            activateDemoMode()
+            return
+        }
         guard let instanceURL = normalizedInstanceURL() else {
             error = "The instance URL "\(instanceURLString)" is not valid. Check for typos and try again."
             return
@@ -145,6 +173,10 @@ final class OnboardingViewModel {
     ///
     /// - Parameter presentationAnchor: The window used to anchor the web auth UI.
     func signInWithPixelfed(presentationAnchor: ASPresentationAnchor) async {
+        if instanceURLString.trimmingCharacters(in: .whitespacesAndNewlines) == "rosemount-review" {
+            activateDemoMode()
+            return
+        }
         guard let instanceURL = normalizedInstanceURL() else {
             error = "The instance URL "\(instanceURLString)" is not valid. Check for typos and try again."
             return

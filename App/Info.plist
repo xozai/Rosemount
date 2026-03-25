@@ -36,17 +36,17 @@
 		</dict>
 	</dict>
 	<key>NSCameraUsageDescription</key>
-	<string>Rosemount uses your camera to take photos for posts and your profile.</string>
+	<string>Rosemount uses your camera to capture photos and videos for posts and stories.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Rosemount accesses your photo library to share images in posts.</string>
+	<string>Rosemount accesses your photo library to share images in posts, stories, and your profile.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
-	<string>Rosemount saves photos to your library.</string>
+	<string>Rosemount saves images from posts to your photo library.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Rosemount uses your location only when you choose to share it with a community or attach it to a post.</string>
-	<key>NSFaceIDUsageDescription</key>
-	<string>Rosemount uses Face ID to securely unlock your account.</string>
+	<string>Rosemount uses your location to tag posts and show nearby community events.</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>Rosemount uses the microphone for voice notes in messages and voice rooms.</string>
+	<string>Rosemount uses your microphone for live voice rooms.</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Rosemount uses Face ID to protect your account.</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>

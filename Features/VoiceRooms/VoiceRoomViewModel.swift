@@ -15,6 +15,7 @@ final class VoiceRoomViewModel: WebRTCSignalingDelegate {
     var isConnecting: Bool = false
     var error: Error?
     var isSpeaker: Bool = false
+    var signalingUnavailable: Bool = false
 
     let audioEngine = VoiceAudioEngine()
     private var signalingClient: WebRTCSignalingClient?
@@ -33,8 +34,43 @@ final class VoiceRoomViewModel: WebRTCSignalingDelegate {
         apiClient = VoiceRoomAPIClient(instanceURL: credential.instanceURL, accessToken: credential.accessToken)
     }
 
+    /// Attempts a WebSocket handshake to verify signaling server reachability.
+    /// Returns `true` when the server is reachable within 5 seconds.
+    func checkSignalingConnectivity() async -> Bool {
+        guard let apiClient else { return false }
+        let sigURL = await apiClient.signalingURL(roomId: room.id)
+        return await withCheckedContinuation { continuation in
+            let session = URLSession(configuration: .ephemeral)
+            let task = session.webSocketTask(with: sigURL)
+            var finished = false
+            let lock = NSLock()
+            task.resume()
+            task.receive { result in
+                lock.lock()
+                defer { lock.unlock() }
+                guard !finished else { return }
+                finished = true
+                task.cancel(with: .normalClosure, reason: nil)
+                continuation.resume(returning: true)
+            }
+            DispatchQueue.global().asyncAfter(deadline: .now() + 5) {
+                lock.lock()
+                defer { lock.unlock() }
+                guard !finished else { return }
+                finished = true
+                task.cancel(with: .goingAway, reason: nil)
+                continuation.resume(returning: false)
+            }
+        }
+    }
+
     func join() async {
         guard let apiClient, let credential else { return }
+        let reachable = await checkSignalingConnectivity()
+        guard reachable else {
+            signalingUnavailable = true
+            return
+        }
         isConnecting = true
         do {
             let joined = try await apiClient.joinRoom(id: room.id)

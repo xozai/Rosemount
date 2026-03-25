@@ -78,6 +78,7 @@ private struct DecryptedEntry {
     let statusId: String
     let plaintext: String
     let wasEncrypted: Bool
+    var isCompatMode: Bool = false
 }
 
 // MARK: - MessageThreadViewModel
@@ -193,19 +194,22 @@ final class MessageThreadViewModel {
             )
             return
         }
+        let compat = await service.isCompatMode(status)
         do {
             if let plaintext = try await service.decryptMessage(status) {
                 decryptedMessages[status.id] = DecryptedEntry(
                     statusId: status.id,
                     plaintext: plaintext,
-                    wasEncrypted: true
+                    wasEncrypted: true,
+                    isCompatMode: compat
                 )
             }
         } catch {
             decryptedMessages[status.id] = DecryptedEntry(
                 statusId: status.id,
                 plaintext: "⚠️ Unable to decrypt message.",
-                wasEncrypted: true
+                wasEncrypted: true,
+                isCompatMode: compat
             )
         }
     }
@@ -280,6 +284,10 @@ final class MessageThreadViewModel {
 
     func wasEncrypted(_ status: MastodonStatus) -> Bool {
         decryptedMessages[status.id]?.wasEncrypted ?? false
+    }
+
+    func isCompatMode(_ status: MastodonStatus) -> Bool {
+        decryptedMessages[status.id]?.isCompatMode ?? false
     }
 }
 
@@ -398,8 +406,11 @@ struct MessageThreadView: View {
                 if viewModel.wasEncrypted(status) {
                     Image(systemName: "lock.fill")
                         .font(.caption2)
-                        .foregroundStyle(.green)
-                        .accessibilityLabel("Encrypted")
+                        .foregroundStyle(viewModel.isCompatMode(status) ? Color.yellow : Color.green)
+                        .accessibilityLabel(viewModel.isCompatMode(status) ? "Encrypted (unverified)" : "Encrypted")
+                        .help(viewModel.isCompatMode(status)
+                              ? "Messages are encrypted but peer verification is unavailable"
+                              : "End-to-end encrypted")
                 }
                 Text(relativeTimestamp(from: status.createdAt))
                     .font(.caption2)
@@ -435,8 +446,11 @@ struct MessageThreadView: View {
                     if viewModel.wasEncrypted(status) {
                         Image(systemName: "lock.fill")
                             .font(.caption2)
-                            .foregroundStyle(.green)
-                            .accessibilityLabel("Encrypted")
+                            .foregroundStyle(viewModel.isCompatMode(status) ? Color.yellow : Color.green)
+                            .accessibilityLabel(viewModel.isCompatMode(status) ? "Encrypted (unverified)" : "Encrypted")
+                            .help(viewModel.isCompatMode(status)
+                                  ? "Messages are encrypted but peer verification is unavailable"
+                                  : "End-to-end encrypted")
                     }
                     Text(relativeTimestamp(from: status.createdAt))
                         .font(.caption2)

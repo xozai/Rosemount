@@ -40,6 +40,20 @@ struct HomeTimelineView: View {
                     timelineList
                 }
             }
+            .safeAreaInset(edge: .top) {
+                if viewModel.isDemoMode {
+                    HStack(spacing: 6) {
+                        Image(systemName: "eyes")
+                        Text("Demo Mode — App Review")
+                            .font(.caption.weight(.semibold))
+                    }
+                    .foregroundStyle(.black)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 6)
+                    .background(Color.yellow, in: Capsule())
+                    .padding(.top, 4)
+                }
+            }
             .navigationTitle(String(localized: "tab.home"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
