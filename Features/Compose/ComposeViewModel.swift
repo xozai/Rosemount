@@ -126,7 +126,7 @@ final class ComposeViewModel {
     ///   Defined in `Core/Auth/AuthManager.swift`.
     func setup(with credential: AccountCredential) {
         // MastodonAPIClient — defined in Core/Mastodon/MastodonAPIClient.swift
-        client = MastodonAPIClient(credential: credential)
+        client = MastodonAPIClient(instanceURL: credential.instanceURL, accessToken: credential.accessToken)
     }
 
     /// Pre-configures the view-model as a reply to an existing status.

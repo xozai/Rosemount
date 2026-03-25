@@ -346,7 +346,7 @@ struct PostCardView: View {
 
     private func submitReport(status: MastodonStatus) async {
         guard let credential = authManager.activeAccount else { return }
-        let client = MastodonAPIClient(credential: credential)
+        let client = MastodonAPIClient(instanceURL: credential.instanceURL, accessToken: credential.accessToken)
         do {
             try await client.reportStatus(
                 accountId: status.account.id,
@@ -360,7 +360,7 @@ struct PostCardView: View {
 
     private func blockAuthor(of status: MastodonStatus) async {
         guard let credential = authManager.activeAccount else { return }
-        let client = MastodonAPIClient(credential: credential)
+        let client = MastodonAPIClient(instanceURL: credential.instanceURL, accessToken: credential.accessToken)
         do {
             _ = try await client.block(id: status.account.id)
             withAnimation { moderationFeedback = "@\(status.account.acct) blocked." }

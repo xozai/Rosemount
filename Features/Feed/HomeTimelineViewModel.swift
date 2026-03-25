@@ -74,7 +74,7 @@ final class HomeTimelineViewModel {
     ///   `AccountCredential` is defined in `Core/Auth/AuthManager.swift`.
     func setup(with credential: AccountCredential) {
         // MastodonAPIClient — defined in Core/Mastodon/MastodonAPIClient.swift
-        client = MastodonAPIClient(credential: credential)
+        client = MastodonAPIClient(instanceURL: credential.instanceURL, accessToken: credential.accessToken)
         // Reset pagination state whenever the account changes.
         statuses = []
         oldestId = nil

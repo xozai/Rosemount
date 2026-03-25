@@ -74,7 +74,7 @@ final class CommunitiesViewModel {
     ///
     /// - Parameter credential: The active `AccountCredential`.
     func setup(with credential: AccountCredential) {
-        client = CommunityAPIClient(credential: credential)
+        client = CommunityAPIClient(instanceURL: credential.instanceURL, accessToken: credential.accessToken)
         // Reset state on account change.
         joinedCommunities = []
         discoveredCommunities = []

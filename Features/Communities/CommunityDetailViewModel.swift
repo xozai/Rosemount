@@ -82,7 +82,7 @@ final class CommunityDetailViewModel {
     ///   - credential:  The active `AccountCredential`.
     func setup(slug: String, credential: AccountCredential) {
         self.slug  = slug
-        self.client = CommunityAPIClient(credential: credential)
+        self.client = CommunityAPIClient(instanceURL: credential.instanceURL, accessToken: credential.accessToken)
         // Reset state on reconfiguration.
         community   = nil
         pinnedPosts = []

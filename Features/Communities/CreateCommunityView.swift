@@ -77,7 +77,7 @@ final class CreateCommunityViewModel {
     ///
     /// - Parameter credential: The active `AccountCredential`.
     func setup(with credential: AccountCredential) {
-        client = CommunityAPIClient(credential: credential)
+        client = CommunityAPIClient(instanceURL: credential.instanceURL, accessToken: credential.accessToken)
     }
 
     // MARK: - Create
@@ -95,11 +95,10 @@ final class CreateCommunityViewModel {
         do {
             let community = try await client.createCommunity(
                 name:        name.trimmingCharacters(in: .whitespacesAndNewlines),
-                slug:        slug,
                 description: description.trimmingCharacters(in: .whitespacesAndNewlines),
                 isPrivate:   isPrivate,
-                avatarImage: avatarImage,
-                headerImage: headerImage
+                avatarData:  avatarImage?.jpegData(compressionQuality: 0.85),
+                headerData:  headerImage?.jpegData(compressionQuality: 0.85)
             )
             createdCommunity = community
         } catch {
