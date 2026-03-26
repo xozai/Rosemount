@@ -553,10 +553,12 @@ struct ContentWarningView: View {
 struct MediaAttachmentsGrid: View {
 
     // MastodonAttachment — defined in Core/Mastodon/Models/MastodonStatus.swift
+    // MediaLightboxView  — defined in Shared/Components/MediaLightboxView.swift
     let attachments: [MastodonAttachment]
     let sensitive: Bool
 
     @State private var revealSensitive: Bool = false
+    @State private var lightboxIndex: Int? = nil
 
     private var columns: [GridItem] {
         let count = min(attachments.count, 2)
@@ -569,38 +571,57 @@ struct MediaAttachmentsGrid: View {
                 sensitiveOverlay
             } else {
                 LazyVGrid(columns: columns, spacing: 4) {
-                    ForEach(attachments.prefix(4), id: \.id) { attachment in
-                        attachmentCell(attachment)
+                    ForEach(Array(attachments.prefix(4).enumerated()), id: \.offset) { index, attachment in
+                        attachmentCell(attachment, index: index)
                     }
                 }
                 .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
             }
         }
+        .fullScreenCover(item: Binding(
+            get: { lightboxIndex.map { LightboxItem(index: $0) } },
+            set: { lightboxIndex = $0?.index }
+        )) { item in
+            MediaLightboxView(attachments: attachments, initialIndex: item.index)
+        }
     }
 
     @ViewBuilder
-    private func attachmentCell(_ attachment: MastodonAttachment) -> some View {
+    private func attachmentCell(_ attachment: MastodonAttachment, index: Int) -> some View {
         let imageURL = URL(string: attachment.previewUrl ?? attachment.url ?? "")
-        AsyncImage(url: imageURL) { phase in
-            switch phase {
-            case .success(let image):
-                image
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
-                    .frame(minHeight: 100, maxHeight: 200)
-                    .clipped()
-            case .empty, .failure:
-                Rectangle()
-                    .fill(Color(.systemGray5))
-                    .frame(height: 120)
-                    .overlay {
-                        Image(systemName: "photo")
-                            .foregroundStyle(.secondary)
-                    }
-            @unknown default:
-                EmptyView()
+        Button {
+            lightboxIndex = index
+        } label: {
+            AsyncImage(url: imageURL) { phase in
+                switch phase {
+                case .success(let image):
+                    image
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                        .frame(minHeight: 100, maxHeight: 200)
+                        .clipped()
+                case .empty, .failure:
+                    Rectangle()
+                        .fill(Color(.systemGray5))
+                        .frame(height: 120)
+                        .overlay {
+                            Image(systemName: "photo")
+                                .foregroundStyle(.secondary)
+                        }
+                @unknown default:
+                    EmptyView()
+                }
             }
+            .accessibilityLabel(attachment.description ?? "Image \(index + 1) of \(attachments.count)")
         }
+        .buttonStyle(.plain)
+    }
+
+    // MARK: - Lightbox helpers
+
+    private struct LightboxItem: Identifiable {
+        let index: Int
+        var id: Int { index }
     }
 
     private var sensitiveOverlay: some View {

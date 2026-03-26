@@ -14,6 +14,7 @@ import SwiftUI
 // PostCardView          — defined in Shared/Components/PostCardView.swift
 // AvatarView            — defined in Shared/Components/AvatarView.swift
 // PostDetailView        — defined in Features/Profile/PostDetailView.swift
+// NetworkMonitor        — defined in Core/Offline/NetworkMonitor.swift
 
 // MARK: - HomeTimelineView
 
@@ -24,13 +25,16 @@ struct HomeTimelineView: View {
     @State private var viewModel = HomeTimelineViewModel()
     @State private var replyingTo: MastodonStatus? = nil
     @Environment(AuthManager.self) private var authManager
+    @State private var networkMonitor = NetworkMonitor.shared
 
     // MARK: - Body
 
     var body: some View {
         NavigationStack {
             Group {
-                if viewModel.isLoading && viewModel.statuses.isEmpty {
+                if !networkMonitor.isConnected && viewModel.statuses.isEmpty {
+                    offlineView
+                } else if viewModel.isLoading && viewModel.statuses.isEmpty {
                     loadingView
                 } else if let error = viewModel.error, viewModel.statuses.isEmpty {
                     errorView(error)
@@ -159,6 +163,15 @@ struct HomeTimelineView: View {
             .onAppear {
                 Task { await viewModel.loadMore() }
             }
+    }
+
+    /// Full-screen offline empty state shown when there is no network and no cached content.
+    private var offlineView: some View {
+        ContentUnavailableView(
+            String(localized: "offline.title"),
+            systemImage: "wifi.slash",
+            description: Text(String(localized: "offline.subtitle"))
+        )
     }
 
     /// Full-screen loading indicator shown on the initial fetch.

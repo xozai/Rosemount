@@ -1,0 +1,101 @@
+# Deliverfile
+# Rosemount — App Store Connect delivery configuration
+# Used by `fastlane deliver` (part of fastlane/fastlane)
+#
+# Documentation: https://docs.fastlane.tools/actions/deliver/
+#
+# Usage:
+#   cd AppStore/fastlane
+#   bundle exec fastlane deliver --skip_binary_upload   # metadata only
+#   bundle exec fastlane deliver                        # full submission
+
+# -------------------------------------------------------------------
+# App identity
+# -------------------------------------------------------------------
+
+app_identifier "com.rosemount.ios"
+username ENV["APPLE_ID"]                  # set APPLE_ID in environment
+
+# Optional: supply your Team ID if you belong to multiple teams
+# team_id ENV["APP_STORE_TEAM_ID"]
+
+# -------------------------------------------------------------------
+# Metadata paths (relative to this Deliverfile)
+# -------------------------------------------------------------------
+
+metadata_path "../metadata"              # see AppStore/metadata/ directory
+screenshots_path "../screenshots"        # see AppStore/screenshots/ directory
+
+# -------------------------------------------------------------------
+# Version & build
+# -------------------------------------------------------------------
+
+app_version "1.0.0"
+
+# -------------------------------------------------------------------
+# App Store listing text
+# For multi-language support, add locale sub-directories under
+# AppStore/metadata/<locale>/description.txt etc.
+# -------------------------------------------------------------------
+
+# Primary language
+primary_language "en-US"
+
+# -------------------------------------------------------------------
+# Rating / age classification
+# Uses the values from AppStore/rating_config.json
+# -------------------------------------------------------------------
+
+# The rating_config.json is provided as a reference; enter values
+# manually in App Store Connect or use the `deliver` rating hash below.
+
+ratings_config_path "../rating_config.json"
+
+# -------------------------------------------------------------------
+# Submission options
+# -------------------------------------------------------------------
+
+# Set to true to submit immediately after upload
+submit_for_review false
+
+# Reject the previous build if one is waiting for review
+reject_if_possible true
+
+# Automatic release after review passes
+automatic_release false
+
+# -------------------------------------------------------------------
+# Binary upload options
+# -------------------------------------------------------------------
+
+# Skip upload if running a metadata-only pass
+# skip_binary_upload true
+
+# Path to the .ipa produced by Xcode / xcodebuild
+# ipa "../build/Rosemount.ipa"
+
+# -------------------------------------------------------------------
+# Phased release
+# -------------------------------------------------------------------
+
+phased_release true
+
+# -------------------------------------------------------------------
+# What's new (release notes) — one file per supported locale
+# Place per-locale notes in:
+#   AppStore/metadata/en-US/release_notes.txt
+# -------------------------------------------------------------------
+
+# -------------------------------------------------------------------
+# Privacy URL
+# -------------------------------------------------------------------
+
+app_review_information({
+  first_name:   "App",
+  last_name:    "Review",
+  phone_number: "+1 (555) 000-0000",
+  email_address: "support@rosemount.social",
+  demo_user:    "rosemount-review",      # triggers demo mode
+  demo_password: "",                     # no password required for demo mode
+  notes: "Type 'rosemount-review' in the instance URL field to activate Demo Mode. No live server required."
+})

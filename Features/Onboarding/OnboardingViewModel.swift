@@ -73,6 +73,35 @@ final class OnboardingViewModel {
         step = .profileSetup
     }
 
+    // MARK: - Instance Reachability
+
+    /// Performs a HEAD request to `/api/v1/instance` with a 5-second timeout.
+    ///
+    /// Returns `true` when the server responds with any HTTP status (even 4xx),
+    /// indicating the server is reachable. Returns `false` on network error or timeout.
+    ///
+    /// Always returns `true` for "rosemount-review" (demo mode bypass).
+    func checkInstanceReachability(_ instanceURL: URL) async -> Bool {
+        var components = URLComponents(url: instanceURL, resolvingAgainstBaseURL: false)!
+        components.path = "/api/v1/instance"
+        guard let url = components.url else { return false }
+
+        let config = URLSessionConfiguration.ephemeral
+        config.timeoutIntervalForRequest = 5
+        config.timeoutIntervalForResource = 5
+        let session = URLSession(configuration: config)
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "HEAD"
+
+        do {
+            let (_, response) = try await session.data(for: request)
+            return response is HTTPURLResponse
+        } catch {
+            return false
+        }
+    }
+
     // MARK: - URL Normalisation
 
     /// Returns a normalised `URL` from `instanceURLString`.
@@ -120,8 +149,16 @@ final class OnboardingViewModel {
         }
 
         isLoading = true
-        step = .authenticating
         error = nil
+
+        let reachable = await checkInstanceReachability(instanceURL)
+        guard reachable else {
+            error = "Could not reach \(instanceURL.host ?? instanceURL.absoluteString). Check the address and your internet connection, then try again."
+            isLoading = false
+            return
+        }
+
+        step = .authenticating
 
         do {
             // 1. Register the app on the instance.
@@ -183,8 +220,16 @@ final class OnboardingViewModel {
         }
 
         isLoading = true
-        step = .authenticating
         error = nil
+
+        let reachable = await checkInstanceReachability(instanceURL)
+        guard reachable else {
+            error = "Could not reach \(instanceURL.host ?? instanceURL.absoluteString). Check the address and your internet connection, then try again."
+            isLoading = false
+            return
+        }
+
+        step = .authenticating
 
         do {
             // PixelfedOAuthService.registerApp and authorize mirror MastodonOAuthService.

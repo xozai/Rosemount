@@ -40,18 +40,23 @@ struct AvatarView: View {
 
     // MARK: - Init
 
+    /// Optional accessibility label shown to VoiceOver users.
+    var accessibilityLabel: String
+
     init(
         url: URL?,
         size: CGFloat = 44,
         shape: AvatarShape = .circle,
         showBadge: Bool = false,
+        accessibilityLabel: String = "Profile photo",
         action: (() -> Void)? = nil
     ) {
-        self.url       = url
-        self.size      = size
-        self.shape     = shape
-        self.showBadge = showBadge
-        self.action    = action
+        self.url                = url
+        self.size               = size
+        self.shape              = shape
+        self.showBadge          = showBadge
+        self.accessibilityLabel = accessibilityLabel
+        self.action             = action
     }
 
     // MARK: - Body
@@ -70,6 +75,8 @@ struct AvatarView: View {
         .buttonStyle(.plain)
         // Disable the button interaction when there is no action, but keep it in the layout.
         .disabled(action == nil)
+        .accessibilityLabel(accessibilityLabel)
+        .accessibilityAddTraits(action != nil ? [] : .isImage)
     }
 
     // MARK: - Subviews

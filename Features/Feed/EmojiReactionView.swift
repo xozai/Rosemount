@@ -132,6 +132,11 @@ struct ReactionPill: View {
         }
         .buttonStyle(.plain)
         .scaleEffect(scale)
+        .accessibilityLabel(
+            reaction.hasReacted
+                ? "Remove \(reaction.emoji) reaction, \(reaction.count) total"
+                : "React with \(reaction.emoji), \(reaction.count) total"
+        )
     }
 }
 
@@ -154,6 +159,7 @@ struct EmojiPickerView: View {
                         Text(emoji).font(.system(size: 32))
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel("React with \(emoji)")
                 }
             }
             .padding()

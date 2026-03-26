@@ -69,6 +69,10 @@
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
+	<!-- EAR 740.17(b) mass-market exemption: CryptoKit (X25519, Ed25519, AES-GCM, HKDF-SHA256).
+	     No US export declaration required. -->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>UIRequiresFullScreen</key>
 	<false/>
 	<key>UIStatusBarStyle</key>

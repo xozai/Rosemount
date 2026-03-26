@@ -124,26 +124,57 @@ struct RosemountApp: App {
 
     // MARK: Deep-link handling
 
-    /// Routes incoming URLs to the appropriate OAuth callback handler.
+    /// Routes incoming `rosemount://` URLs.
     ///
-    /// Supported schemes:
-    /// - `rosemount://oauth/mastodon`
-    /// - `rosemount://oauth/pixelfed`
-    ///
-    /// Broadcasts a `Notification.Name("OAuthCallbackReceived")` carrying the full URL
-    /// in the `userInfo` under the key `"url"`.  The listening `OnboardingViewModel`
-    /// completes the OAuth exchange upon receipt.
+    /// Supported paths:
+    /// - `rosemount://oauth/mastodon`  → OAuth callback
+    /// - `rosemount://oauth/pixelfed`  → OAuth callback
+    /// - `rosemount://profile/<accountId>` → Open profile
+    /// - `rosemount://status/<statusId>`   → Open post detail
+    /// - `rosemount://conversation/<conversationId>` → Open DM thread
     private func handleDeepLink(_ url: URL) {
         guard url.scheme == "rosemount" else { return }
+        guard let host = url.host else { return }
 
-        let supportedHosts = ["oauth"]
-        guard let host = url.host, supportedHosts.contains(host) else { return }
+        switch host {
+        case "oauth":
+            // Notify OnboardingViewModel to complete the OAuth exchange.
+            NotificationCenter.default.post(
+                name: Notification.Name("OAuthCallbackReceived"),
+                object: nil,
+                userInfo: ["url": url]
+            )
 
-        NotificationCenter.default.post(
-            name: Notification.Name("OAuthCallbackReceived"),
-            object: nil,
-            userInfo: ["url": url]
-        )
+        case "profile":
+            let accountId = url.pathComponents.dropFirst().first ?? ""
+            guard !accountId.isEmpty else { return }
+            NotificationCenter.default.post(
+                name: Notification.Name("DeepLinkOpenProfile"),
+                object: nil,
+                userInfo: ["accountId": accountId]
+            )
+
+        case "status":
+            let statusId = url.pathComponents.dropFirst().first ?? ""
+            guard !statusId.isEmpty else { return }
+            NotificationCenter.default.post(
+                name: Notification.Name("DeepLinkOpenStatus"),
+                object: nil,
+                userInfo: ["statusId": statusId]
+            )
+
+        case "conversation":
+            let conversationId = url.pathComponents.dropFirst().first ?? ""
+            guard !conversationId.isEmpty else { return }
+            NotificationCenter.default.post(
+                name: Notification.Name("DeepLinkOpenConversation"),
+                object: nil,
+                userInfo: ["conversationId": conversationId]
+            )
+
+        default:
+            logger.debug("Unhandled deep-link host: \(host)")
+        }
     }
 }
 

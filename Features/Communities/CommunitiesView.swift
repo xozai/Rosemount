@@ -14,6 +14,7 @@ import SwiftUI
 // CommunityRole         — defined in Core/Communities/Models/RosemountCommunity.swift
 // AuthManager           — defined in Core/Auth/AuthManager.swift
 // AvatarView            — defined in Shared/Components/AvatarView.swift
+// NetworkMonitor        — defined in Core/Offline/NetworkMonitor.swift
 
 // MARK: - CommunitiesView
 
@@ -23,6 +24,7 @@ struct CommunitiesView: View {
 
     @State private var viewModel = CommunitiesViewModel()
     @Environment(AuthManager.self) private var authManager
+    @State private var networkMonitor = NetworkMonitor.shared
 
     @State private var showingCreate: Bool = false
     @State private var selectedCommunity: RosemountCommunity? = nil
@@ -32,7 +34,13 @@ struct CommunitiesView: View {
     var body: some View {
         NavigationStack {
             Group {
-                if viewModel.isLoading && viewModel.joinedCommunities.isEmpty && viewModel.discoveredCommunities.isEmpty {
+                if !networkMonitor.isConnected && viewModel.joinedCommunities.isEmpty && viewModel.discoveredCommunities.isEmpty {
+                    ContentUnavailableView(
+                        String(localized: "offline.title"),
+                        systemImage: "wifi.slash",
+                        description: Text(String(localized: "offline.subtitle"))
+                    )
+                } else if viewModel.isLoading && viewModel.joinedCommunities.isEmpty && viewModel.discoveredCommunities.isEmpty {
                     loadingView
                 } else {
                     communityContent

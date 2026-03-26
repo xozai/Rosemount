@@ -7,13 +7,16 @@
 //   Tab 0 — Home           → HomeTimelineView
 //                            (toolbar leading button → ConversationsView sheet)
 //   Tab 1 — Communities    → CommunitiesView
-//   Tab 2 — Compose        → presents PhotoComposeView as a sheet (no inline view)
+//   Tab 2 — Explore        → ExploreView (search + trending hashtags)
 //   Tab 3 — Notifications  → NotificationsView
 //   Tab 4 — Profile        → ProfileView(accountId:)
+//
+//   Compose (New Post) is accessible via a toolbar button on the Home tab.
 //
 // Types referenced from other files:
 //   HomeTimelineView    — Features/Feed/HomeTimelineView.swift
 //   CommunitiesView     — Features/Communities/CommunitiesView.swift
+//   ExploreView         — Features/Explore/ExploreView.swift
 //   NotificationsView   — Features/Notifications/NotificationsView.swift
 //   ProfileView         — Features/Profile/ProfileView.swift
 //   PhotoComposeView    — Features/Photos/PhotoComposeView.swift
@@ -29,7 +32,7 @@ import SwiftUI
 private enum RosemountTab: Int, CaseIterable {
     case home          = 0
     case communities   = 1
-    case compose       = 2
+    case explore       = 2
     case notifications = 3
     case profile       = 4
 }
@@ -54,8 +57,7 @@ struct ContentView: View {
 
             // 0. Home Timeline
             // HomeTimelineView already contains a NavigationStack.
-            // We add a leading toolbar button for DMs via a modifier that
-            // injects into the inner NavigationStack's toolbar.
+            // Toolbar buttons for DMs and compose are injected here.
             HomeTimelineView()
                 .toolbar {
                     ToolbarItem(placement: .navigationBarLeading) {
@@ -64,6 +66,14 @@ struct ContentView: View {
                         } label: {
                             Image(systemName: "bubble.left.and.bubble.right")
                                 .accessibilityLabel("Direct Messages")
+                        }
+                    }
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        Button {
+                            showingCompose = true
+                        } label: {
+                            Image(systemName: "square.and.pencil")
+                                .accessibilityLabel("New Post")
                         }
                     }
                 }
@@ -81,14 +91,14 @@ struct ContentView: View {
             }
             .tag(RosemountTab.communities.rawValue)
 
-            // 2. Compose — centre tab.
-            // A transparent placeholder so the tab item renders; the sheet
-            // is presented modally via .onChange below.
-            Color.clear
-                .tabItem {
-                    Label("New Post", systemImage: "plus.circle.fill")
-                }
-                .tag(RosemountTab.compose.rawValue)
+            // 2. Explore — search + trending hashtags
+            NavigationStack {
+                ExploreView()
+            }
+            .tabItem {
+                Label("Explore", systemImage: "magnifyingglass")
+            }
+            .tag(RosemountTab.explore.rawValue)
 
             // 3. Notifications
             NotificationsView()
@@ -108,15 +118,7 @@ struct ContentView: View {
             }
             .tag(RosemountTab.profile.rawValue)
         }
-        // Intercept the compose tab to present PhotoComposeView as a sheet,
-        // then revert the selection so dismissal doesn't leave compose "active".
-        .onChange(of: selectedTab) { _, newValue in
-            if newValue == RosemountTab.compose.rawValue {
-                showingCompose = true
-                selectedTab = RosemountTab.home.rawValue
-            }
-        }
-        // Photo-first compose sheet (Phase 2).
+        // Photo-first compose sheet — triggered from the Home toolbar button.
         .sheet(isPresented: $showingCompose) {
             PhotoComposeView()
                 .environment(authManager)

@@ -304,6 +304,30 @@ actor MastodonAPIClient {
         return try await request("/api/v2/search", queryItems: items)
     }
 
+    // MARK: - Hashtag Timeline
+
+    /// Returns statuses containing the given hashtag.
+    func hashtagTimeline(hashtag: String, maxId: String? = nil, limit: Int = 20) async throws -> [MastodonStatus] {
+        var items: [URLQueryItem] = [URLQueryItem(name: "limit", value: String(limit))]
+        if let maxId { items.append(URLQueryItem(name: "max_id", value: maxId)) }
+        return try await request("/api/v1/timelines/tag/\(hashtag)", queryItems: items)
+    }
+
+    // MARK: - Trending
+
+    /// Returns the currently trending hashtags on the instance.
+    func trendingTags(limit: Int = 20) async throws -> [MastodonTag] {
+        let items: [URLQueryItem] = [URLQueryItem(name: "limit", value: String(limit))]
+        return try await request("/api/v1/trends/tags", queryItems: items)
+    }
+
+    // MARK: - Notifications Management
+
+    /// Dismisses all notifications for the authenticated user.
+    func clearAllNotifications() async throws {
+        let _: EmptyResponse = try await request("/api/v1/notifications/clear", method: "POST")
+    }
+
     // MARK: - Media
 
     /// Uploads media data and returns the resulting attachment entity.

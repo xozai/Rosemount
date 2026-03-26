@@ -169,13 +169,10 @@ final class NotificationsViewModel {
         isLoadingMore = false
     }
 
-    /// Clears the local notification badge.
-    ///
-    /// The Mastodon v1 API does not expose a "mark all as read" endpoint.
-    /// This method therefore only resets the visual badge via the push-notification
-    /// service; the server considers notifications read when polled via
-    /// `GET /api/v1/notifications`.
+    /// Clears all notifications on the server and resets the local badge to 0.
     func markAllRead() async {
         await PushNotificationService.shared.clearBadge()
+        // POST /api/v1/notifications/clear — dismisses all notifications server-side.
+        try? await client?.clearAllNotifications()
     }
 }

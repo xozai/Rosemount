@@ -15,6 +15,8 @@ import SwiftUI
 // AuthManager              — defined in Core/Auth/AuthManager.swift
 // AccountCredential        — defined in Core/Auth/AuthManager.swift
 
+// NetworkMonitor — defined in Core/Offline/NetworkMonitor.swift
+
 // MARK: - NotificationsView
 
 /// Root view for the in-app notification centre.
@@ -26,6 +28,7 @@ struct NotificationsView: View {
 
     @State private var viewModel = NotificationsViewModel()
     @Environment(AuthManager.self) private var authManager
+    @State private var networkMonitor = NetworkMonitor.shared
 
     // MARK: - Body
 
@@ -74,7 +77,13 @@ struct NotificationsView: View {
 
     @ViewBuilder
     private var notificationContent: some View {
-        if viewModel.isLoading && viewModel.notifications.isEmpty {
+        if !networkMonitor.isConnected && viewModel.notifications.isEmpty {
+            ContentUnavailableView(
+                String(localized: "offline.title"),
+                systemImage: "wifi.slash",
+                description: Text(String(localized: "offline.subtitle"))
+            )
+        } else if viewModel.isLoading && viewModel.notifications.isEmpty {
             loadingView
         } else if let error = viewModel.error, viewModel.notifications.isEmpty {
             errorView(error)

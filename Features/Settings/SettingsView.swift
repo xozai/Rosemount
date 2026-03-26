@@ -10,6 +10,8 @@ import SwiftUI
 // AuthManager      — Core/Auth/AuthManager.swift
 // LicensesView     — Features/Settings/LicensesView.swift
 // URLHealthChecker — Core/Rosemount/URLHealthChecker.swift
+// AvatarView       — Shared/Components/AvatarView.swift
+// OnboardingView   — Features/Onboarding/OnboardingView.swift
 
 struct SettingsView: View {
 
@@ -17,18 +19,27 @@ struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var showingSignOutConfirm = false
+    @State private var showingAddAccount = false
     @StateObject private var healthChecker = URLHealthChecker()
 
     var body: some View {
         NavigationStack {
             List {
 
-                // MARK: Account
+                // MARK: Accounts
 
                 Section(String(localized: "settings.account.section")) {
-                    if let account = authManager.activeAccount {
-                        LabeledContent(String(localized: "settings.account.handle"), value: "@\(account.handle)")
-                        LabeledContent(String(localized: "settings.account.server"), value: account.instanceURL.host ?? "")
+                    ForEach(authManager.accounts) { account in
+                        AccountRow(account: account, isActive: account.id == authManager.activeAccount?.id) {
+                            authManager.switchAccount(to: account)
+                        } onRemove: {
+                            authManager.removeAccount(account)
+                        }
+                    }
+                    Button {
+                        showingAddAccount = true
+                    } label: {
+                        Label(String(localized: "settings.add_account"), systemImage: "plus.circle")
                     }
                 }
 
@@ -117,6 +128,54 @@ struct SettingsView: View {
                 Button(String(localized: "compose.cancel"), role: .cancel) {}
             } message: {
                 Text(String(localized: "settings.sign_out.message"))
+            }
+            .sheet(isPresented: $showingAddAccount) {
+                OnboardingView()
+                    .environment(authManager)
+            }
+        }
+    }
+}
+
+// MARK: - AccountRow
+
+private struct AccountRow: View {
+    let account: AccountCredential
+    let isActive: Bool
+    let onSwitch: () -> Void
+    let onRemove: () -> Void
+
+    var body: some View {
+        HStack(spacing: 12) {
+            AvatarView(url: account.avatarURL, size: 36, shape: .circle)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(account.displayName ?? "@\(account.handle)")
+                    .font(.subheadline.weight(.semibold))
+                    .lineLimit(1)
+                Text("@\(account.handle) · \(account.instanceURL.host ?? "")")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+
+            Spacer()
+
+            if isActive {
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundStyle(.accentColor)
+                    .accessibilityLabel("Active account")
+            }
+        }
+        .contentShape(Rectangle())
+        .onTapGesture { if !isActive { onSwitch() } }
+        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+            if !isActive {
+                Button(role: .destructive) {
+                    onRemove()
+                } label: {
+                    Label("Remove", systemImage: "trash")
+                }
             }
         }
     }
