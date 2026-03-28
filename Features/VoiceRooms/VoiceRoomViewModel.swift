@@ -88,6 +88,7 @@ final class VoiceRoomViewModel: WebRTCSignalingDelegate {
 
             // Start audio if speaker
             if isSpeaker {
+                try? WebRTCAudioSession.shared.activate()
                 try? audioEngine.start()
             }
 
@@ -104,6 +105,7 @@ final class VoiceRoomViewModel: WebRTCSignalingDelegate {
         stopPolling()
         signalingClient?.disconnect()
         audioEngine.stop()
+        WebRTCAudioSession.shared.deactivate()
         isConnected = false
         try? await apiClient.leaveRoom(id: room.id)
     }

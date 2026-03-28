@@ -23,7 +23,10 @@ struct HomeTimelineView: View {
     // MARK: - State
 
     @State private var viewModel = HomeTimelineViewModel()
+    @State private var storiesViewModel = StoriesViewModel()
     @State private var replyingTo: MastodonStatus? = nil
+    @State private var viewingStoryGroup: StoryGroup? = nil
+    @State private var showingStoryComposer = false
     @Environment(AuthManager.self) private var authManager
     @State private var networkMonitor = NetworkMonitor.shared
 
@@ -45,18 +48,31 @@ struct HomeTimelineView: View {
                 }
             }
             .safeAreaInset(edge: .top) {
-                if viewModel.isDemoMode {
-                    HStack(spacing: 6) {
-                        Image(systemName: "eyes")
-                        Text("Demo Mode — App Review")
-                            .font(.caption.weight(.semibold))
+                VStack(spacing: 0) {
+                    let storyGroups = viewModel.isDemoMode
+                        ? HomeTimelineView.demoStoryGroups
+                        : storiesViewModel.allGroups
+                    StoriesRowView(
+                        groups: storyGroups,
+                        onTap: { group in viewingStoryGroup = group },
+                        onAddStory: { showingStoryComposer = true }
+                    )
+                    .environment(authManager)
+                    Divider()
+                    if viewModel.isDemoMode {
+                        HStack(spacing: 6) {
+                            Image(systemName: "eyes")
+                            Text("Demo Mode — App Review")
+                                .font(.caption.weight(.semibold))
+                        }
+                        .foregroundStyle(.black)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 6)
+                        .background(Color.yellow, in: Capsule())
+                        .padding(.top, 4)
                     }
-                    .foregroundStyle(.black)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 6)
-                    .background(Color.yellow, in: Capsule())
-                    .padding(.top, 4)
                 }
+                .background(.background)
             }
             .navigationTitle(String(localized: "tab.home"))
             .navigationBarTitleDisplayMode(.inline)
@@ -94,19 +110,46 @@ struct HomeTimelineView: View {
         .task {
             guard let account = authManager.activeAccount else { return }
             viewModel.setup(with: account)
+            storiesViewModel.setup(with: account)
             await viewModel.refresh()
+            if !viewModel.isDemoMode {
+                await storiesViewModel.refresh()
+            }
         }
         .onChange(of: authManager.activeAccount) { _, newAccount in
             guard let newAccount else { return }
             Task {
                 viewModel.setup(with: newAccount)
+                storiesViewModel.setup(with: newAccount)
                 await viewModel.refresh()
+                if !viewModel.isDemoMode {
+                    await storiesViewModel.refresh()
+                }
             }
         }
         // Reply composer sheet
         .sheet(item: $replyingTo) { status in
             ComposeView(replyTo: status)
                 .environment(authManager)
+        }
+        // Story viewer
+        .fullScreenCover(item: $viewingStoryGroup) { group in
+            let startIndex = storiesViewModel.allGroups.firstIndex(of: group) ?? 0
+            StoryViewerView(
+                groups: viewModel.isDemoMode ? HomeTimelineView.demoStoryGroups : storiesViewModel.allGroups,
+                startingGroupIndex: startIndex
+            )
+            .environment(authManager)
+        }
+        // Story composer
+        .sheet(isPresented: $showingStoryComposer) {
+            StoryComposerView()
+                .environment(authManager)
+                .onDisappear {
+                    guard let account = authManager.activeAccount else { return }
+                    storiesViewModel.setup(with: account)
+                    Task { await storiesViewModel.refresh() }
+                }
         }
     }
 
@@ -218,6 +261,43 @@ struct HomeTimelineView: View {
             systemImage: "bubble.left.and.bubble.right",
             description: Text(String(localized: "timeline.empty.subtitle"))
         )
+    }
+}
+
+// MARK: - Demo Helpers
+
+private extension HomeTimelineView {
+    static var demoStoryGroups: [StoryGroup] {
+        func makeAccount(id: String, name: String, handle: String) -> MastodonAccount {
+            MastodonAccount(
+                id: id, username: handle, acct: handle, displayName: name,
+                locked: false, bot: false,
+                createdAt: ISO8601DateFormatter().string(from: Date()),
+                note: "", url: "", avatar: "", avatarStatic: "",
+                header: "", headerStatic: "",
+                followersCount: 0, followingCount: 0, statusesCount: 0,
+                emojis: [], fields: []
+            )
+        }
+        func makeStory(id: String, account: MastodonAccount) -> RosemountStory {
+            let iso = ISO8601DateFormatter()
+            return RosemountStory(
+                id: id, account: account,
+                mediaURL: "", mediaType: .image, duration: 5,
+                caption: nil, backgroundColor: "#4A90D9",
+                createdAt: iso.string(from: Date()),
+                expiresAt: iso.string(from: Date().addingTimeInterval(86400)),
+                viewCount: 0, hasViewed: false, reactions: []
+            )
+        }
+        let a1 = makeAccount(id: "demo-story-1", name: "Alice", handle: "alice")
+        let a2 = makeAccount(id: "demo-story-2", name: "Bob", handle: "bob")
+        let a3 = makeAccount(id: "demo-story-3", name: "Carol", handle: "carol")
+        return [
+            StoryGroup(account: a1, stories: [makeStory(id: "ds1", account: a1)]),
+            StoryGroup(account: a2, stories: [makeStory(id: "ds2", account: a2)]),
+            StoryGroup(account: a3, stories: [makeStory(id: "ds3", account: a3)]),
+        ]
     }
 }
 

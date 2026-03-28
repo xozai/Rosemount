@@ -138,6 +138,20 @@ struct AvatarView: View {
     }
 }
 
+// MARK: - Convenience Inits
+
+extension AvatarView {
+    /// Convenience initialiser that builds an `AvatarView` directly from a `MastodonAccount`.
+    init(account: MastodonAccount, size: CGFloat = 44, shape: AvatarShape = .circle) {
+        self.init(
+            url: URL(string: account.avatar),
+            size: size,
+            shape: shape,
+            accessibilityLabel: account.displayName
+        )
+    }
+}
+
 // MARK: - Previews
 
 #if DEBUG

@@ -208,6 +208,11 @@ actor MastodonAPIClient {
         return try await request("/api/v1/statuses", method: "POST", body: body)
     }
 
+    /// Fetches a single status by ID.
+    func fetchStatus(id: String) async throws -> MastodonStatus {
+        try await request("/api/v1/statuses/\(id)", queryItems: [])
+    }
+
     /// Deletes a status authored by the authenticated user.
     func deleteStatus(id: String) async throws {
         let _: EmptyResponse = try await request("/api/v1/statuses/\(id)", method: "DELETE")
@@ -326,6 +331,52 @@ actor MastodonAPIClient {
     /// Dismisses all notifications for the authenticated user.
     func clearAllNotifications() async throws {
         let _: EmptyResponse = try await request("/api/v1/notifications/clear", method: "POST")
+    }
+
+    // MARK: - Push Subscriptions
+
+    /// Subscribes to Mastodon Web Push for the authenticated account.
+    ///
+    /// Implements `POST /api/v1/push/subscription` per the Mastodon Push Notifications API.
+    ///
+    /// - Parameters:
+    ///   - endpoint: The push endpoint URL provided by the relay server.
+    ///   - p256dhKey: The base64url-encoded P-256 Diffie-Hellman public key.
+    ///   - authSecret: The base64url-encoded 16-byte authentication secret.
+    ///   - alerts: Which notification types to enable.
+    @discardableResult
+    func subscribePushNotifications(
+        endpoint: String,
+        p256dhKey: String,
+        authSecret: String,
+        alerts: PushAlerts = .all
+    ) async throws -> PushSubscription {
+        let body: [String: Any] = [
+            "subscription": [
+                "endpoint": endpoint,
+                "keys": [
+                    "p256dh": p256dhKey,
+                    "auth":   authSecret
+                ]
+            ],
+            "data": [
+                "alerts": [
+                    "follow":         alerts.follow,
+                    "favourite":      alerts.favourite,
+                    "reblog":         alerts.reblog,
+                    "mention":        alerts.mention,
+                    "poll":           alerts.poll,
+                    "status":         alerts.status,
+                    "follow_request": alerts.followRequest
+                ]
+            ]
+        ]
+        return try await request("/api/v1/push/subscription", method: "POST", body: body)
+    }
+
+    /// Removes the existing Web Push subscription for the authenticated account.
+    func deletePushSubscription() async throws {
+        let _: EmptyResponse = try await request("/api/v1/push/subscription", method: "DELETE")
     }
 
     // MARK: - Media
@@ -460,6 +511,33 @@ actor MastodonAPIClient {
 
 /// Placeholder decodable used for endpoints that return an empty body (e.g. DELETE).
 private struct EmptyResponse: Decodable {}
+
+// MARK: - Push types
+
+/// Alert flags controlling which notification categories trigger a push.
+struct PushAlerts {
+    var follow: Bool        = true
+    var favourite: Bool     = true
+    var reblog: Bool        = true
+    var mention: Bool       = true
+    var poll: Bool          = true
+    var status: Bool        = true
+    var followRequest: Bool = true
+
+    static let all = PushAlerts()
+}
+
+/// Minimal representation of the push subscription entity returned by the API.
+struct PushSubscription: Decodable {
+    let id: String
+    let endpoint: String
+    let serverKey: String
+
+    enum CodingKeys: String, CodingKey {
+        case id, endpoint
+        case serverKey = "server_key"
+    }
+}
 
 // MARK: - Data + UTF8 Helpers
 

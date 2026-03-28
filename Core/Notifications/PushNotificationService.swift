@@ -7,9 +7,11 @@
 //
 // Swift 5.10 | iOS 17.0+
 
+import CryptoKit
 import Foundation
 import OSLog
 import Observation
+import Security
 import UserNotifications
 import UIKit
 
@@ -97,13 +99,16 @@ final class PushNotificationService: NSObject {
         Task { await registerTokenWithServer(hex) }
     }
 
-    /// POSTs the device token to the Rosemount push-notification relay server.
+    /// POSTs the device token to the Rosemount push-notification relay server,
+    /// then subscribes directly to Mastodon Web Push for each authenticated account.
     ///
-    /// The relay server then subscribes to Mastodon Web Push on behalf of each
-    /// registered account and forwards notifications to APNs.
+    /// The relay server receives APNs tokens and forwards Mastodon Web Push payloads.
+    /// The direct Mastodon subscription ensures in-app notifications also work
+    /// when the relay is unavailable.
     private func registerTokenWithServer(_ token: String) async {
         guard let account = AuthManager.shared.activeAccount else { return }
 
+        // 1. Register with the Rosemount relay server.
         let endpoint = URL(string: "https://api.rosemount.social/api/v1/push/register")!
         var request = URLRequest(url: endpoint)
         request.httpMethod = "POST"
@@ -124,11 +129,114 @@ final class PushNotificationService: NSObject {
             if let http = response as? HTTPURLResponse, !(200...299).contains(http.statusCode) {
                 logger.error("Token registration returned HTTP \(http.statusCode)")
             } else {
-                logger.info("Push token registered with server.")
+                logger.info("Push token registered with relay server.")
             }
         } catch {
-            logger.error("Token registration failed: \(error.localizedDescription)")
+            logger.error("Relay registration failed: \(error.localizedDescription)")
         }
+
+        // 2. Subscribe to Mastodon Web Push directly on each account's instance.
+        await subscribeWebPush(for: account, deviceToken: token)
+    }
+
+    /// Subscribes to Mastodon Web Push (`POST /api/v1/push/subscription`) for the given account.
+    ///
+    /// Generates (or retrieves from Keychain) a P-256 keypair and auth secret for
+    /// end-to-end encryption of push payloads.
+    private func subscribeWebPush(for account: AccountCredential, deviceToken: String) async {
+        let keychainTag = "social.rosemount.push.\(account.id.uuidString)"
+
+        // Retrieve or generate the P-256 keypair.
+        let (p256dhKey, authSecret): (String, String)
+        do {
+            (p256dhKey, authSecret) = try loadOrCreatePushKeys(tag: keychainTag)
+        } catch {
+            logger.error("Failed to create/load push keys: \(error.localizedDescription)")
+            return
+        }
+
+        // Build the relay endpoint URL for this account.
+        let pushEndpoint = "https://api.rosemount.social/api/v1/push/relay/\(account.id.uuidString)/\(deviceToken)"
+
+        let mastodonClient = MastodonAPIClient(
+            instanceURL: account.instanceURL,
+            accessToken: account.accessToken
+        )
+        do {
+            try await mastodonClient.subscribePushNotifications(
+                endpoint: pushEndpoint,
+                p256dhKey: p256dhKey,
+                authSecret: authSecret
+            )
+            logger.info("Mastodon Web Push subscription created for \(account.handle).")
+        } catch {
+            logger.error("Web Push subscription failed for \(account.handle): \(error.localizedDescription)")
+        }
+    }
+
+    // MARK: - Push Key Management
+
+    /// Returns the base64url-encoded P-256 public key and auth secret for push encryption,
+    /// generating and storing them in the Keychain if they don't exist yet.
+    private func loadOrCreatePushKeys(tag: String) throws -> (p256dhKey: String, authSecret: String) {
+        let keyTag     = "\(tag).key"
+        let secretTag  = "\(tag).secret"
+
+        // Try loading existing key from Keychain.
+        if let existingKey = keychainLoad(tag: keyTag),
+           let existingSecret = keychainLoad(tag: secretTag) {
+            return (existingKey, existingSecret)
+        }
+
+        // Generate a new P-256 private key and a 16-byte auth secret.
+        let privateKey = P256.KeyAgreement.PrivateKey()
+        let p256dhKey = privateKey.publicKey.rawRepresentation.base64URLEncoded()
+
+        var authSecretBytes = [UInt8](repeating: 0, count: 16)
+        let _ = SecRandomCopyBytes(kSecRandomDefault, 16, &authSecretBytes)
+        let authSecret = Data(authSecretBytes).base64URLEncoded()
+
+        // Store the raw private key scalar + auth secret in Keychain.
+        try keychainStore(data: privateKey.rawRepresentation, tag: keyTag)
+        try keychainStore(data: Data(authSecretBytes), tag: secretTag)
+
+        return (p256dhKey, authSecret)
+    }
+
+    // MARK: - Keychain Helpers
+
+    private func keychainStore(data: Data, tag: String) throws {
+        let query: [CFString: Any] = [
+            kSecClass:           kSecClassGenericPassword,
+            kSecAttrAccount:     tag,
+            kSecValueData:       data,
+            kSecAttrAccessible:  kSecAttrAccessibleAfterFirstUnlock
+        ]
+        SecItemDelete(query as CFDictionary)
+        let status = SecItemAdd(query as CFDictionary, nil)
+        guard status == errSecSuccess else {
+            throw NSError(domain: NSOSStatusErrorDomain, code: Int(status))
+        }
+    }
+
+    private func keychainLoad(tag: String) -> String? {
+        let query: [CFString: Any] = [
+            kSecClass:           kSecClassGenericPassword,
+            kSecAttrAccount:     tag,
+            kSecReturnData:      true,
+            kSecMatchLimit:      kSecMatchLimitOne
+        ]
+        var result: AnyObject?
+        guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess,
+              let data = result as? Data
+        else { return nil }
+        // Try to interpret as P-256 private key (32-byte raw scalar) — re-derive public key.
+        if data.count == 32,
+           let privateKey = try? P256.KeyAgreement.PrivateKey(rawRepresentation: data) {
+            return privateKey.publicKey.rawRepresentation.base64URLEncoded()
+        }
+        // Otherwise treat it as a raw value (auth secret or unknown).
+        return data.base64URLEncoded()
     }
 
     // MARK: - Notification Payload Routing
@@ -182,6 +290,9 @@ final class PushNotificationService: NSObject {
         }
 
         pendingDeepLink = deepLink
+        if let deepLink {
+            DeepLinkRouter.shared.route(deepLink)
+        }
         return deepLink
     }
 
@@ -211,5 +322,17 @@ final class PushNotificationService: NSObject {
     func consumePendingDeepLink() -> DeepLink? {
         defer { pendingDeepLink = nil }
         return pendingDeepLink
+    }
+}
+
+// MARK: - Data + Base64URL
+
+private extension Data {
+    /// Returns a base64url-encoded string (URL-safe, no padding) as per RFC 4648 §5.
+    func base64URLEncoded() -> String {
+        base64EncodedString()
+            .replacingOccurrences(of: "+", with: "-")
+            .replacingOccurrences(of: "/", with: "_")
+            .replacingOccurrences(of: "=", with: "")
     }
 }

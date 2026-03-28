@@ -36,6 +36,16 @@ actor EventAPIClient {
         self.accessToken = accessToken
     }
 
+    func fetchEvents(upcoming: Bool = true, mine: Bool = false, maxId: String? = nil, limit: Int = 20) async throws -> [RosemountEvent] {
+        var query: [String: String] = [
+            "upcoming": upcoming ? "true" : "false",
+            "limit": "\(limit)"
+        ]
+        if mine { query["mine"] = "true" }
+        if let maxId { query["max_id"] = maxId }
+        return try await get(path: "api/v1/events", query: query)
+    }
+
     func communityEvents(slug: String, upcoming: Bool = true, page: Int = 1) async throws -> [RosemountEvent] {
         try await get(path: "api/v1/communities/\(slug)/events", query: ["upcoming": upcoming ? "true" : "false", "page": "\(page)"])
     }

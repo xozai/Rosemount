@@ -104,6 +104,45 @@ actor PixelfedAPIClient {
         try await _mastodonClient.homeTimeline(maxId: maxId, sinceId: nil, limit: limit)
     }
 
+    /// Returns the Pixelfed discover feed (`GET /api/v2/discover/posts`).
+    ///
+    /// The discover feed surfaces trending public photos from across the federated network.
+    ///
+    /// - Parameters:
+    ///   - maxId: Pagination cursor — return results older than this status ID.
+    ///   - limit: Maximum number of posts to return (default 20).
+    func discoverFeed(
+        maxId: String? = nil,
+        limit: Int = 20
+    ) async throws -> [MastodonStatus] {
+        var comps = URLComponents(url: instanceURL.appendingPathComponent("api/v2/discover/posts"), resolvingAgainstBaseURL: false)!
+        var queryItems = [URLQueryItem(name: "limit", value: "\(limit)")]
+        if let maxId { queryItems.append(URLQueryItem(name: "max_id", value: maxId)) }
+        comps.queryItems = queryItems
+        var request = URLRequest(url: comps.url!)
+        request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+        let (data, _) = try await URLSession.shared.data(for: request)
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        return try decoder.decode([MastodonStatus].self, from: data)
+    }
+
+    /// Returns posts by a specific user (`GET /api/v1/accounts/:id/statuses`),
+    /// filtered to only media-bearing posts.
+    ///
+    /// - Parameters:
+    ///   - userId: The Mastodon account ID string.
+    ///   - maxId: Pagination cursor — return results older than this status ID.
+    ///   - limit: Maximum number of posts to return (default 20).
+    func userPosts(
+        userId: String,
+        maxId: String? = nil,
+        limit: Int = 20
+    ) async throws -> [MastodonStatus] {
+        let all = try await _mastodonClient.accountStatuses(id: userId, maxId: maxId, limit: limit, excludeReplies: true)
+        return all.filter { !$0.mediaAttachments.isEmpty }
+    }
+
     // MARK: - Accounts
 
     /// Verifies credentials and returns the authenticated Pixelfed account.
