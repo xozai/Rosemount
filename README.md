@@ -2,7 +2,7 @@
 
 > Community social on the open web
 
-![iOS 17.0+](https://img.shields.io/badge/iOS-17.0%2B-blue) ![Swift 5.10](https://img.shields.io/badge/Swift-5.10-orange) ![License](https://img.shields.io/badge/license-See%20LICENSE-lightgrey)
+![iOS 17.0+](https://img.shields.io/badge/iOS-17.0%2B-blue) ![Swift 5.10](https://img.shields.io/badge/Swift-5.10-orange) ![License](https://img.shields.io/badge/license-MIT-green)
 
 A native iOS social networking app built on the ActivityPub protocol, with full interoperability with Mastodon and Pixelfed.
 
