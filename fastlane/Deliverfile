@@ -1,0 +1,44 @@
+# Deliverfile — App Store Connect submission configuration
+#
+# `deliver` (upload_to_app_store) reads metadata from fastlane/metadata/
+# and screenshots from fastlane/screenshots/ and uploads everything.
+
+app_identifier "social.rosemount.app"
+username ENV["APPLE_ID"] || "your@apple.id"
+
+# Where to find metadata files
+metadata_path "./fastlane/metadata"
+
+# Where to find screenshots
+screenshots_path "./fastlane/screenshots"
+
+# Upload configuration
+submit_for_review false      # set to true only in the `release` lane
+automatic_release false      # manually release after review passes
+force true                   # overwrite existing metadata without prompting
+
+# Don't re-upload screenshots on every run unless they changed
+skip_screenshots false
+
+# Skip binary upload when only updating metadata
+skip_binary_upload false
+
+# Reject the current build in review if a new one is being submitted
+reject_if_possible true
+
+# Phased release (gradually roll out to users over 7 days)
+phased_release true
+
+# App categories
+primary_category "MZGenre.SocialNetworking"
+secondary_category "MZGenre.News"
+
+# Age rating — answers to the App Store age rating questionnaire
+# All "none" = 4+, but we set 12+ for user-generated content
+app_rating_config_path "./fastlane/metadata/age_rating.json"
+
+# Copyright line
+copyright "#{Time.now.year} Rosemount Social, Inc."
+
+# Pricing
+price_tier 0  # free

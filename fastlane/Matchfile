@@ -1,0 +1,28 @@
+# Matchfile — certificate and provisioning profile storage config
+#
+# `match` stores all certs and profiles in an encrypted private Git repo.
+# Every developer and CI server runs `fastlane match appstore` to get
+# identical signing credentials instead of managing them individually.
+#
+# Setup: create a new PRIVATE repo (e.g. github.com/your-org/rosemount-certificates)
+# then run: fastlane match init
+
+git_url ENV["MATCH_GIT_URL"] || "git@github.com:your-org/rosemount-certificates.git"
+
+# Encryption passphrase stored as MATCH_PASSWORD env var (never commit it)
+# Set locally: export MATCH_PASSWORD="your-passphrase"
+# Set in CI: add MATCH_PASSWORD as a secret
+
+storage_mode "git"
+
+type "appstore"   # default type — override per lane with `match(type: "development")`
+
+app_identifier ["social.rosemount.app"]
+
+username ENV["APPLE_ID"] || "your@apple.id"
+
+# Automatically fix provisioning profiles that are out of date
+force_for_new_devices true
+
+# Don't open Xcode when done
+skip_docs true

@@ -1,0 +1,25 @@
+{
+  "_comment": "App Store age rating configuration for Rosemount.",
+  "_comment2": "Values: 0 = None, 1 = Infrequent/Mild, 2 = Frequent/Intense",
+  "_docs": "https://developer.apple.com/help/app-store-connect/reference/age-ratings",
+
+  "CARTOON_FANTASY_VIOLENCE": 0,
+  "REALISTIC_VIOLENCE": 0,
+  "PROLONGED_GRAPHIC_SADISTIC_REALISTIC_VIOLENCE": 0,
+  "PROFANITY_CRUDE_HUMOR": 0,
+  "MATURE_SUGGESTIVE": 1,
+  "HORROR": 0,
+  "MEDICAL_TREATMENT_INFO": 0,
+  "ALCOHOL_TOBACCO_DRUGS": 0,
+  "GAMBLING": 0,
+  "SEXUAL_CONTENT_NUDITY": 0,
+  "GRAPHIC_SEXUAL_CONTENT_NUDITY": 0,
+  "UNRESTRICTED_WEB_ACCESS": 0,
+  "GAMBLING_CONTESTS": 0,
+
+  "_result_age_rating": "12+",
+
+  "SOCIAL_NETWORKING": true,
+  "USER_GENERATED_CONTENT": true,
+  "PRIVACY_POLICY_URL": "https://rosemount.social/privacy"
+}

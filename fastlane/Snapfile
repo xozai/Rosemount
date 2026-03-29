@@ -1,0 +1,35 @@
+# Snapfile — automated screenshot configuration
+#
+# Run: fastlane snapshot
+# This drives the RosemountUITests scheme through each screen and saves
+# screenshots for every device/language combination listed here.
+
+# Devices to capture (covers all required App Store sizes)
+devices([
+  "iPhone 16 Pro Max",   # 6.9" — required (replaces 6.7")
+  "iPhone 8 Plus",       # 5.5" — required
+  "iPad Pro (13-inch) (M4)"  # 13" iPad — required if iPad supported
+])
+
+# Languages to capture (add more for localized submissions)
+languages([
+  "en-US"
+])
+
+# The UI test scheme that calls snapshot()
+scheme "RosemountUITests"
+
+# Where to save screenshots
+output_directory "./fastlane/screenshots"
+
+# Clear previous screenshots before each run
+clear_previous_screenshots true
+
+# Stop on first error
+stop_after_first_error false
+
+# Xcode project
+project "./Rosemount.xcodeproj"
+
+# Override status bar to show clean time/battery for screenshots
+override_status_bar true

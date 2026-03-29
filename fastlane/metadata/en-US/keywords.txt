@@ -1,0 +1,1 @@
+social,network,community,fediverse,activitypub,mastodon,decentralized,local,open,privacy

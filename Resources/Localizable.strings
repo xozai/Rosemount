@@ -1,0 +1,161 @@
+/* Localizable.strings — English (en)
+   Rosemount
+
+   All user-visible strings should use String(localized:) or NSLocalizedString() so
+   they can be translated here. This file is the canonical English source.
+   Add new locales by duplicating this file under the appropriate .lproj directory.
+*/
+
+// MARK: - Tabs
+
+"tab.home"             = "Home";
+"tab.communities"      = "Communities";
+"tab.compose"          = "New Post";
+"tab.notifications"    = "Notifications";
+"tab.profile"          = "Profile";
+
+// MARK: - Home Timeline
+
+"timeline.empty.title"       = "Your feed is empty";
+"timeline.empty.subtitle"    = "Follow some people to get started.";
+"timeline.error.retry"       = "Try Again";
+"timeline.loading"           = "Loading your feed…";
+"error.feed.load_failed"     = "Couldn't load your feed";
+
+// MARK: - Compose
+
+"compose.placeholder"        = "What's on your mind?";
+"compose.cancel"             = "Cancel";
+"compose.post"               = "Post";
+"compose.reply.title"        = "Reply";
+"compose.new.title"          = "New Post";
+"compose.cw.placeholder"     = "Content warning…";
+"compose.uploading"          = "Uploading photo…";
+"compose.posting"            = "Posting…";
+"compose.failed.title"       = "Post Failed";
+"compose.draft.save"         = "Save Draft";
+"compose.draft.discard"      = "Discard";
+"compose.draft.keep_editing" = "Keep Editing";
+"compose.draft.save_prompt"  = "Save draft?";
+"compose.draft.save_message" = "Your post will be saved so you can finish it later.";
+"compose.location.add"       = "Add location";
+"compose.location.remove"    = "Remove location";
+
+// MARK: - Drafts
+
+"drafts.title"         = "Drafts";
+"drafts.empty.title"   = "No Saved Drafts";
+"drafts.empty.message" = "Posts you save while composing will appear here.";
+
+// MARK: - Notifications
+
+"notifications.loading"                    = "Loading notifications…";
+"notifications.error.load_failed"          = "Failed to load notifications";
+"notifications.mark_all_read"              = "Mark all read";
+"notifications.empty.all.title"            = "No notifications yet";
+"notifications.empty.all.subtitle"         = "When someone follows you, mentions you, or interacts with your posts you'll see it here.";
+"notifications.empty.mentions.title"       = "No mentions yet";
+"notifications.empty.mentions.subtitle"    = "When someone mentions you in a post, it will appear here.";
+"notifications.empty.follows.title"        = "No follows yet";
+"notifications.empty.follows.subtitle"     = "New followers and follow requests will appear here.";
+"notifications.empty.boosts.title"         = "No boosts yet";
+"notifications.empty.boosts.subtitle"      = "When someone boosts one of your posts, it will appear here.";
+"notifications.empty.favourites.title"     = "No favourites yet";
+"notifications.empty.favourites.subtitle"  = "When someone favourites one of your posts, it will appear here.";
+
+// MARK: - Communities
+
+"communities.title"           = "Communities";
+"communities.empty.joined"    = "No communities yet";
+"communities.empty.discover"  = "No communities to discover";
+"communities.create"          = "Create Community";
+"communities.join"            = "Join";
+"communities.joined"          = "Joined";
+
+// MARK: - Direct Messages
+
+"dm.title"            = "Direct Messages";
+"dm.new"              = "New Message";
+"dm.empty.title"      = "No conversations yet";
+"dm.empty.subtitle"   = "Start a conversation by tapping +.";
+"dm.compose.placeholder" = "Message…";
+"dm.encryption.on"    = "Encryption on";
+"dm.encryption.off"   = "Encryption off";
+
+// MARK: - Profile
+
+"profile.posts"       = "Posts";
+"profile.following"   = "Following";
+"profile.followers"   = "Followers";
+"profile.edit"        = "Edit Profile";
+"profile.follow"      = "Follow";
+"profile.following.verb" = "Following";
+"profile.unfollow"    = "Unfollow";
+"profile.block"       = "Block";
+"profile.mute"        = "Mute";
+"profile.report"      = "Report";
+
+// MARK: - Settings
+
+"settings.title"              = "Settings";
+"settings.account.section"    = "Account";
+"settings.account.handle"     = "Handle";
+"settings.account.server"     = "Server";
+"settings.notifications"      = "Open Notification Settings";
+"settings.about.section"      = "About";
+"settings.version"            = "Version";
+"settings.licenses"           = "Open Source Licenses";
+"settings.accessibility"      = "Accessibility Audit";
+"settings.privacy_policy"     = "Privacy Policy";
+"settings.terms"              = "Terms of Service";
+"settings.support"            = "Support";
+"settings.sign_out"           = "Sign Out";
+"settings.sign_out.confirm"   = "Sign out of Rosemount?";
+"settings.sign_out.message"   = "You can sign back in at any time.";
+
+// MARK: - Common Actions
+
+"action.done"    = "Done";
+"action.cancel"  = "Cancel";
+"action.ok"      = "OK";
+"action.retry"   = "Try Again";
+
+// MARK: - Accessibility
+
+"a11y.post_card.hint"    = "Double tap to open thread. %1$d likes, %2$d replies.";
+"a11y.boosted_by"        = "%@ boosted";
+"a11y.feed_filter"       = "Feed filter: %@";
+"a11y.encryption_badge"  = "Encrypted";
+"a11y.location_chip"     = "Location: %@. Tap × to remove.";
+"a11y.avatar"            = "Profile photo of %@";
+
+// MARK: - Errors
+
+"error.generic"           = "Something went wrong. Please try again.";
+"error.network"           = "No internet connection.";
+"error.decryption"        = "Unable to decrypt message.";
+"error.offline_banner"    = "Cache unavailable — posts won't be saved offline.";
+
+// MARK: - Voice Rooms
+
+"voice.join"             = "Joining room…";
+"voice.leave"            = "Leave";
+"voice.end"              = "End Room for Everyone";
+"voice.leave_quietly"    = "Leave Quietly";
+"voice.mute"             = "Mute";
+"voice.unmute"           = "Unmute";
+"voice.raise_hand"       = "Raise Hand";
+"voice.lower_hand"       = "Lower Hand";
+"voice.listening"        = "%d listening";
+
+// MARK: - Stories
+
+"stories.time_remaining" = "%@ remaining";
+"stories.expired"        = "Expired";
+
+// MARK: - Onboarding
+
+"onboarding.welcome.title"    = "Welcome to Rosemount";
+"onboarding.sign_in"          = "Sign In";
+"onboarding.create_account"   = "Create Account";
+"onboarding.server.prompt"    = "Which server do you use?";

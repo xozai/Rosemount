@@ -1,0 +1,39 @@
+# Xcode
+*.xcodeproj/xcuserdata/
+*.xcworkspace/xcuserdata/
+*.xcworkspace/xcshareddata/IDEWorkspaceChecks.plist
+DerivedData/
+build/
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# fastlane
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots/**/*.png
+fastlane/test_output/
+
+# Credentials — never commit these
+.env
+*.p12
+*.p8
+*.mobileprovision
+fastlane/README.md
+
+# Ruby
+.bundle/
+vendor/bundle/
+Gemfile.lock
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Swift Package Manager
+.build/
+.swiftpm/
+
+# Simulator
+*.xcresult
