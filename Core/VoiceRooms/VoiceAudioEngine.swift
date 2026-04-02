@@ -75,7 +75,11 @@ final class VoiceAudioEngine {
     // MARK: - Buffer Processing
 
     private func processTapBuffer(_ buffer: AVAudioPCMBuffer) {
-        guard !isMuted,
+        // Capture isMuted as a local on the tap thread to avoid a cross-thread
+        // read of the @Observable property. The read races harmlessly: the worst
+        // case is processing one extra frame when mute toggles.
+        let currentlyMuted = isMuted
+        guard !currentlyMuted,
               let channelData = buffer.floatChannelData
         else {
             DispatchQueue.main.async { [weak self] in self?.inputLevel = 0 }
@@ -97,11 +101,12 @@ final class VoiceAudioEngine {
         let dB = 20 * log10(max(rms, 1e-7))
         let normalised = max(0, min(1, (dB + 60) / 60))
 
-        // Smooth the level to avoid jitter.
-        let smoothed = levelSmoothingFactor * normalised + (1 - levelSmoothingFactor) * inputLevel
-
+        // Smoothing is done on the main thread so the read of inputLevel
+        // is always on the same thread as the write.
         DispatchQueue.main.async { [weak self] in
-            self?.inputLevel = smoothed
+            guard let self else { return }
+            let smoothed = self.levelSmoothingFactor * normalised + (1 - self.levelSmoothingFactor) * self.inputLevel
+            self.inputLevel = smoothed
         }
     }
 }

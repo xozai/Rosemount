@@ -1,9 +1,7 @@
 // Core/VoiceRooms/WebRTCSignalingClient.swift
 // WebSocket-based WebRTC signaling client
 
-import AVFoundation
 import Foundation
-import Observation
 
 // MARK: - Signaling State
 
@@ -120,56 +118,3 @@ final class WebRTCSignalingClient: NSObject {
     }
 }
 
-// MARK: - Audio Engine
-
-@Observable
-@MainActor
-final class VoiceAudioEngine {
-    var isMuted: Bool = false
-    var isActive: Bool = false
-    var inputLevel: Float = 0.0
-    private var audioEngine: AVAudioEngine?
-    private var inputNode: AVAudioInputNode?
-    private var levelTimer: Timer?
-
-    func start() throws {
-        let session = AVAudioSession.sharedInstance()
-        try session.setCategory(.playAndRecord, mode: .voiceChat, options: [.allowBluetooth, .defaultToSpeaker])
-        try session.setActive(true)
-
-        let engine = AVAudioEngine()
-        let input = engine.inputNode
-        let format = input.outputFormat(forBus: 0)
-
-        input.installTap(onBus: 0, bufferSize: 1024, format: format) { [weak self] buffer, _ in
-            guard let self, !self.isMuted else { return }
-            // In a full WebRTC implementation, this audio data would be encoded
-            // and sent via the peer connection's audio track. Here we measure level.
-            let channelData = buffer.floatChannelData?[0]
-            let frameLength = Int(buffer.frameLength)
-            guard let data = channelData else { return }
-            let sum = (0..<frameLength).reduce(0.0) { $0 + abs(data[$1]) }
-            let avg = frameLength > 0 ? sum / Float(frameLength) : 0
-            Task { @MainActor in self.inputLevel = avg }
-        }
-
-        try engine.start()
-        audioEngine = engine
-        inputNode = input
-        isActive = true
-    }
-
-    func stop() {
-        audioEngine?.inputNode.removeTap(onBus: 0)
-        audioEngine?.stop()
-        audioEngine = nil
-        inputNode = nil
-        isActive = false
-        inputLevel = 0
-        try? AVAudioSession.sharedInstance().setActive(false)
-    }
-
-    func setMuted(_ muted: Bool) {
-        isMuted = muted
-    }
-}
