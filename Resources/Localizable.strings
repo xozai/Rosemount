@@ -109,6 +109,7 @@
 "settings.privacy_policy"     = "Privacy Policy";
 "settings.terms"              = "Terms of Service";
 "settings.support"            = "Support";
+"settings.add_account"        = "Add Account";
 "settings.sign_out"           = "Sign Out";
 "settings.sign_out.confirm"   = "Sign out of Rosemount?";
 "settings.sign_out.message"   = "You can sign back in at any time.";

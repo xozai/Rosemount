@@ -182,7 +182,7 @@ extension MastodonAPIClient {
         fields: [(name: String, value: String)]? = nil
     ) async throws -> MastodonAccount {
         let boundary = "RosemountP2Boundary-\(UUID().uuidString)"
-        let url = p2BuildURL("/api/v1/accounts/update_credentials")
+        let url = try p2BuildURL("/api/v1/accounts/update_credentials")
 
         var req = URLRequest(url: url)
         req.httpMethod = "PATCH"
