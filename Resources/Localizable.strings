@@ -158,6 +158,20 @@
 // MARK: - Onboarding
 
 "onboarding.welcome.title"    = "Welcome to Rosemount";
+"onboarding.welcome.subtitle" = "Your community, connected.";
+"onboarding.signing_in"       = "Signing in…";
 "onboarding.sign_in"          = "Sign In";
 "onboarding.create_account"   = "Create Account";
 "onboarding.server.prompt"    = "Which server do you use?";
+
+// MARK: - Photo Composer
+
+"photo.compose.select_prompt"  = "Select photos to get started…";
+"photo.compose.caption"        = "What's on your mind?";
+"photo.compose.alt_text"       = "Accessibility descriptions";
+"photo.compose.alt_text.field" = "Add alt text…";
+"photo.compose.cw_label"       = "Content Warning";
+"photo.compose.cw_add"         = "Add content warning";
+"photo.compose.cw_remove"      = "Remove content warning";
+"photo.compose.uploading"      = "Uploading… %d%%";
+"photo.picker.loading"         = "Loading photos…";

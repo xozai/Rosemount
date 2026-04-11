@@ -82,7 +82,9 @@ final class OnboardingViewModel {
     ///
     /// Always returns `true` for "rosemount-review" (demo mode bypass).
     func checkInstanceReachability(_ instanceURL: URL) async -> Bool {
-        var components = URLComponents(url: instanceURL, resolvingAgainstBaseURL: false)!
+        guard var components = URLComponents(url: instanceURL, resolvingAgainstBaseURL: false) else {
+            return false
+        }
         components.path = "/api/v1/instance"
         guard let url = components.url else { return false }
 

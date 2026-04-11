@@ -64,7 +64,7 @@ struct OnboardingView: View {
             ProgressView()
                 .scaleEffect(1.6)
 
-            Text("Signing in…")
+            Text(String(localized: "onboarding.signing_in"))
                 .font(.headline)
                 .foregroundStyle(.secondary)
         }
@@ -92,12 +92,12 @@ struct OnboardingWelcomeView: View {
 
             // Title & Subtitle
             VStack(spacing: 8) {
-                Text("Welcome to Rosemount")
+                Text(String(localized: "onboarding.welcome.title"))
                     .font(.largeTitle)
                     .fontWeight(.bold)
                     .multilineTextAlignment(.center)
 
-                Text("Your community, connected.")
+                Text(String(localized: "onboarding.welcome.subtitle"))
                     .font(.title3)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
