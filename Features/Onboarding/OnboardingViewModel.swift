@@ -287,6 +287,19 @@ final class OnboardingViewModel {
             error = "Please fill in all fields."
             return
         }
+        guard email.contains("@"), email.split(separator: "@").last?.contains(".") == true else {
+            error = "Please enter a valid email address."
+            return
+        }
+        guard username.count >= 2, username.count <= 30,
+              username.range(of: "^[a-zA-Z0-9_]+$", options: .regularExpression) != nil else {
+            error = "Username must be 2–30 characters and may only contain letters, numbers, and underscores."
+            return
+        }
+        guard password.count >= 8 else {
+            error = "Password must be at least 8 characters."
+            return
+        }
 
         isLoading = true
         step = .authenticating

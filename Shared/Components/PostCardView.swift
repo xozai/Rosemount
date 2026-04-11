@@ -8,6 +8,7 @@
 // Swift 5.10 | iOS 17.0+
 
 import SwiftUI
+import UIKit
 
 // MastodonStatus       — defined in Core/Mastodon/Models/MastodonStatus.swift
 // MastodonAccount      — defined in Core/Mastodon/Models/MastodonAccount.swift
@@ -297,7 +298,10 @@ struct PostCardView: View {
         accessibilityLabel: String,
         action: @escaping () -> Void
     ) -> some View {
-        Button(action: action) {
+        Button {
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            action()
+        } label: {
             HStack(spacing: 4) {
                 Image(systemName: icon)
                     .font(.subheadline)

@@ -137,6 +137,23 @@ struct ComposeView: View {
                     .accessibilityLabel("Location: \(place). Tap × to remove.")
                 }
 
+                // Over-limit warning
+                if viewModel.remainingCharacters < 0 {
+                    HStack(spacing: 6) {
+                        Image(systemName: "exclamationmark.circle.fill")
+                            .font(.caption)
+                            .foregroundStyle(.red)
+                        Text("Over limit by \(-viewModel.remainingCharacters) character\(-viewModel.remainingCharacters == 1 ? "" : "s")")
+                            .font(.caption)
+                            .foregroundStyle(.red)
+                        Spacer()
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.top, 4)
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+                    .animation(.easeInOut(duration: 0.2), value: viewModel.remainingCharacters)
+                }
+
                 // Media upload progress
                 if viewModel.isUploadingMedia {
                     HStack(spacing: 8) {

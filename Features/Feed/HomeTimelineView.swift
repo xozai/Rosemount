@@ -151,6 +151,20 @@ struct HomeTimelineView: View {
                     Task { await storiesViewModel.refresh() }
                 }
         }
+        // Show errors that occur after content is already loaded (e.g. rate-limit during pagination or action).
+        .alert(
+            String(localized: "error.title"),
+            isPresented: Binding(
+                get: { viewModel.error != nil && !viewModel.statuses.isEmpty },
+                set: { if !$0 { viewModel.error = nil } }
+            )
+        ) {
+            Button(String(localized: "error.dismiss"), role: .cancel) { viewModel.error = nil }
+        } message: {
+            if let error = viewModel.error {
+                Text(error.localizedDescription)
+            }
+        }
     }
 
     // MARK: - Subviews

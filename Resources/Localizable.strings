@@ -135,6 +135,8 @@
 "error.network"           = "No internet connection.";
 "error.decryption"        = "Unable to decrypt message.";
 "error.offline_banner"    = "Cache unavailable — posts won't be saved offline.";
+"error.title"             = "Error";
+"error.dismiss"           = "OK";
 
 // MARK: - Voice Rooms
 

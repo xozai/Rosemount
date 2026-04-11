@@ -269,67 +269,26 @@ struct AudioLevelIndicator: View {
 
 struct VoiceRoomsListView: View {
     let communitySlug: String?
-    @State private var rooms: [VoiceRoom] = []
-    @State private var isLoading = false
-    @State private var selectedRoom: VoiceRoom? = nil
-    @State private var showingCreate = false
-    @Environment(AuthManager.self) private var authManager
-    private var apiClient: VoiceRoomAPIClient? {
-        guard let acct = authManager.activeAccount else { return nil }
-        return VoiceRoomAPIClient(instanceURL: acct.instanceURL, accessToken: acct.accessToken)
-    }
 
     var body: some View {
-        Group {
-            if isLoading && rooms.isEmpty {
-                ProgressView()
-            } else if rooms.isEmpty {
-                VStack(spacing: 16) {
-                    Image(systemName: "waveform.circle")
-                        .font(.system(size: 52))
-                        .foregroundStyle(.secondary)
-                    Text("No live rooms right now")
-                        .foregroundStyle(.secondary)
-                    Button("Start a Room") { showingCreate = true }
-                        .buttonStyle(.borderedProminent)
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else {
-                List(rooms) { room in
-                    VoiceRoomRowView(room: room)
-                        .contentShape(Rectangle())
-                        .onTapGesture { selectedRoom = room }
-                        .listRowSeparator(.hidden)
-                        .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
-                }
-                .listStyle(.plain)
-                .refreshable { await loadRooms() }
-            }
+        // Voice Rooms are in active development — show a Coming Soon placeholder
+        // until the WebRTC peer-connection layer is complete.
+        VStack(spacing: 20) {
+            Spacer()
+            Image(systemName: "waveform.circle")
+                .font(.system(size: 64))
+                .foregroundStyle(.secondary)
+            Text("Voice Rooms")
+                .font(.title2.bold())
+            Text("Live audio rooms are coming soon.\nJoin your community and talk in real time.")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 40)
+            Spacer()
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .navigationTitle("Voice Rooms")
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Button { showingCreate = true } label: {
-                    Label("New Room", systemImage: "plus")
-                }
-            }
-        }
-        .fullScreenCover(item: $selectedRoom) { room in
-            VoiceRoomView(room: room).environment(authManager)
-        }
-        .sheet(isPresented: $showingCreate) {
-            CreateVoiceRoomView(communitySlug: communitySlug)
-                .environment(authManager)
-                .onDisappear { Task { await loadRooms() } }
-        }
-        .task { await loadRooms() }
-    }
-
-    private func loadRooms() async {
-        guard let client = apiClient else { return }
-        isLoading = true
-        rooms = (try? await client.liveRooms(communitySlug: communitySlug)) ?? []
-        isLoading = false
     }
 }
 
