@@ -122,12 +122,15 @@ actor VoiceRoomAPIClient {
         _ = try await session.data(for: req)
     }
 
-    func signalingURL(roomId: String) -> URL {
-        var components = URLComponents(url: instanceURL, resolvingAgainstBaseURL: false)!
+    func signalingURL(roomId: String) throws -> URL {
+        guard var components = URLComponents(url: instanceURL, resolvingAgainstBaseURL: false) else {
+            throw MastodonClientError.invalidURL
+        }
         components.scheme = instanceURL.scheme == "https" ? "wss" : "ws"
         components.path = "/api/v1/voice/rooms/\(roomId)/signal"
         components.queryItems = [URLQueryItem(name: "token", value: accessToken)]
-        return components.url!
+        guard let url = components.url else { throw MastodonClientError.invalidURL }
+        return url
     }
 
     private func get<T: Decodable>(path: String) async throws -> T {

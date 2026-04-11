@@ -388,7 +388,7 @@ actor MastodonAPIClient {
         description: String? = nil
     ) async throws -> MastodonAttachment {
         let boundary = "RosemountBoundary-\(UUID().uuidString)"
-        let url = buildURL("/api/v2/media", queryItems: [])
+        let url = try buildURL("/api/v2/media", queryItems: [])
 
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
@@ -431,7 +431,7 @@ actor MastodonAPIClient {
         _ endpoint: String,
         queryItems: [URLQueryItem] = []
     ) async throws -> T {
-        let url = buildURL(endpoint, queryItems: queryItems)
+        let url = try buildURL(endpoint, queryItems: queryItems)
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
@@ -454,7 +454,7 @@ actor MastodonAPIClient {
         body: [String: Any]? = nil,
         queryItems: [URLQueryItem] = []
     ) async throws -> T {
-        let url = buildURL(endpoint, queryItems: queryItems)
+        let url = try buildURL(endpoint, queryItems: queryItems)
         var request = URLRequest(url: url)
         request.httpMethod = method
         request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
@@ -476,15 +476,18 @@ actor MastodonAPIClient {
     }
 
     /// Constructs a full URL by appending `path` to `instanceURL` and attaching query items.
-    private func buildURL(_ path: String, queryItems: [URLQueryItem]) -> URL {
-        var components = URLComponents(
-            url: instanceURL.appendingPathComponent(path.hasPrefix("/") ? String(path.dropFirst()) : path),
-            resolvingAgainstBaseURL: false
-        )!
+    private func buildURL(_ path: String, queryItems: [URLQueryItem]) throws -> URL {
+        let base = instanceURL.appendingPathComponent(path.hasPrefix("/") ? String(path.dropFirst()) : path)
+        guard var components = URLComponents(url: base, resolvingAgainstBaseURL: false) else {
+            throw MastodonClientError.invalidURL
+        }
         if !queryItems.isEmpty {
             components.queryItems = queryItems
         }
-        return components.url!
+        guard let url = components.url else {
+            throw MastodonClientError.invalidURL
+        }
+        return url
     }
 
     /// Throws a typed `MastodonClientError` for non-2xx responses.

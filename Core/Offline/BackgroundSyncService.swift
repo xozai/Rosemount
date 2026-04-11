@@ -50,10 +50,18 @@ final class BackgroundSyncService {
 
     static func registerTasks() {
         BGTaskScheduler.shared.register(forTaskWithIdentifier: refreshTaskId, using: nil) { task in
-            Self.shared.handleAppRefresh(task: task as! BGAppRefreshTask)
+            guard let refreshTask = task as? BGAppRefreshTask else {
+                task.setTaskCompleted(success: false)
+                return
+            }
+            Self.shared.handleAppRefresh(task: refreshTask)
         }
         BGTaskScheduler.shared.register(forTaskWithIdentifier: syncTaskId, using: nil) { task in
-            Self.shared.handleProcessingTask(task: task as! BGProcessingTask)
+            guard let processingTask = task as? BGProcessingTask else {
+                task.setTaskCompleted(success: false)
+                return
+            }
+            Self.shared.handleProcessingTask(task: processingTask)
         }
         logger.info("Background tasks registered.")
     }

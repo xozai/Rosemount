@@ -279,13 +279,20 @@ struct PostCardView: View {
 
             Spacer()
 
-            // Share
-            ShareLink(item: status.url.flatMap { URL(string: $0) } ?? URL(string: "https://rosemount.app")!) {
+            // Share — only shown when the status has a valid URL
+            if let shareURL = status.url.flatMap({ URL(string: $0) }) {
+                ShareLink(item: shareURL) {
+                    Image(systemName: "square.and.arrow.up")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+                .accessibilityLabel("Share post")
+            } else {
                 Image(systemName: "square.and.arrow.up")
                     .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.tertiary)
+                    .accessibilityHidden(true)
             }
-            .accessibilityLabel("Share post")
         }
     }
 

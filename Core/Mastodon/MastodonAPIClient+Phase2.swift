@@ -48,17 +48,20 @@ extension MastodonAPIClient {
     }
 
     /// Builds a complete URL by appending `path` to `instanceURL` with optional query items.
-    fileprivate func p2BuildURL(_ path: String, queryItems: [URLQueryItem] = []) -> URL {
-        var components = URLComponents(
-            url: instanceURL.appendingPathComponent(
-                path.hasPrefix("/") ? String(path.dropFirst()) : path
-            ),
-            resolvingAgainstBaseURL: false
-        )!
+    fileprivate func p2BuildURL(_ path: String, queryItems: [URLQueryItem] = []) throws -> URL {
+        let base = instanceURL.appendingPathComponent(
+            path.hasPrefix("/") ? String(path.dropFirst()) : path
+        )
+        guard var components = URLComponents(url: base, resolvingAgainstBaseURL: false) else {
+            throw MastodonClientError.invalidURL
+        }
         if !queryItems.isEmpty {
             components.queryItems = queryItems
         }
-        return components.url!
+        guard let url = components.url else {
+            throw MastodonClientError.invalidURL
+        }
+        return url
     }
 
     /// Throws `MastodonClientError.httpError` when the response is non-2xx.
@@ -75,7 +78,7 @@ extension MastodonAPIClient {
         _ path: String,
         queryItems: [URLQueryItem] = []
     ) async throws -> T {
-        let url = p2BuildURL(path, queryItems: queryItems)
+        let url = try p2BuildURL(path, queryItems: queryItems)
         var req = URLRequest(url: url)
         req.httpMethod = "GET"
         req.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
@@ -96,7 +99,7 @@ extension MastodonAPIClient {
         _ path: String,
         body: [String: Any]? = nil
     ) async throws -> T {
-        let url = p2BuildURL(path)
+        let url = try p2BuildURL(path)
         var req = URLRequest(url: url)
         req.httpMethod = "POST"
         req.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
@@ -119,7 +122,7 @@ extension MastodonAPIClient {
 
     /// Executes a DELETE request and discards the response body.
     fileprivate func p2DeleteVoid(_ path: String) async throws {
-        let url = p2BuildURL(path)
+        let url = try p2BuildURL(path)
         var req = URLRequest(url: url)
         req.httpMethod = "DELETE"
         req.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
