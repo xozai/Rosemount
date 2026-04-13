@@ -1,14 +1,10 @@
 # Rosemount
 
-A native iOS community social networking app built on the ActivityPub protocol,
-with full interoperability with Mastodon and Pixelfed.
+> Community social on the open web
 
-![Platform](https://img.shields.io/badge/platform-iOS%2017%2B-blue)
-![Language](https://img.shields.io/badge/swift-5.10-orange)
-![License](https://img.shields.io/badge/license-Apache%202.0-green)
-![Status](https://img.shields.io/badge/status-Active%20Development-brightgreen)
+![iOS 17.0+](https://img.shields.io/badge/iOS-17.0%2B-blue) ![Swift 5.10](https://img.shields.io/badge/Swift-5.10-orange) ![License](https://img.shields.io/badge/license-Apache%202.0-green) ![Status](https://img.shields.io/badge/status-Active%20Development-brightgreen)
 
-<!-- Add simulator screenshots here -->
+A native iOS social networking app built on the ActivityPub protocol, with full interoperability with Mastodon and Pixelfed.
 
 ## What is Rosemount?
 
@@ -97,23 +93,22 @@ Apple App Store and is fully open source.
 
 ## Getting Started
 
-**Prerequisites:** macOS 14 (Sonoma) or later, Xcode 16+, [Homebrew](https://brew.sh)
+**Prerequisites:** macOS 14 (Sonoma) or later, Xcode 16+, [XcodeGen](https://github.com/yonaskolb/XcodeGen) (`brew install xcodegen`)
 
 ```bash
-# 1. Install XcodeGen
-brew install xcodegen
-
-# 2. Clone and switch to the development branch
+# 1. Clone
 git clone https://github.com/xozai/Rosemount.git
 cd Rosemount
-git checkout claude/ios-activitypub-social-app-k9seL
+
+# 2. Install Ruby dependencies (fastlane)
+bundle install
 
 # 3. Generate the Xcode project
 xcodegen generate
 
 # 4. Open and run
 open Rosemount.xcodeproj
-# Select an iPhone 15 simulator, then press ⌘R
+# Select an iPhone 16 simulator, then press ⌘R
 ```
 
 **App Review / Demo mode:** On the sign-in screen, type `rosemount-review` as the instance
