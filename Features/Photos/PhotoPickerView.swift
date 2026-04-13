@@ -41,6 +41,7 @@ struct PhotoPickerView: View {
                                     .foregroundStyle(.white, .black.opacity(0.6))
                                     .padding(4)
                             }
+                            .accessibilityLabel("Remove photo \(index + 1)")
                         }
                     }
                 }
@@ -50,7 +51,7 @@ struct PhotoPickerView: View {
                 HStack {
                     ProgressView()
                         .controlSize(.small)
-                    Text("Loading photos…")
+                    Text(String(localized: "photo.picker.loading"))
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }

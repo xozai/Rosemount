@@ -38,7 +38,7 @@ final class VoiceRoomViewModel: WebRTCSignalingDelegate {
     /// Returns `true` when the server is reachable within 5 seconds.
     func checkSignalingConnectivity() async -> Bool {
         guard let apiClient else { return false }
-        let sigURL = await apiClient.signalingURL(roomId: room.id)
+        guard let sigURL = try? await apiClient.signalingURL(roomId: room.id) else { return false }
         return await withCheckedContinuation { continuation in
             let session = URLSession(configuration: .ephemeral)
             let task = session.webSocketTask(with: sigURL)
@@ -83,7 +83,7 @@ final class VoiceRoomViewModel: WebRTCSignalingDelegate {
             let client = WebRTCSignalingClient(roomId: room.id, senderId: credential.id.uuidString)
             client.delegate = self
             signalingClient = client
-            let sigURL = await apiClient.signalingURL(roomId: room.id)
+            let sigURL = try await apiClient.signalingURL(roomId: room.id)
             client.connect(to: sigURL)
 
             // Start audio if speaker

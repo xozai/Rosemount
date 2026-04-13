@@ -65,7 +65,7 @@ private struct ConversationAPIClient {
     // MARK: Private helpers
 
     private func get<T: Decodable>(_ path: String, queryItems: [URLQueryItem] = []) async throws -> T {
-        let url = buildURL(path, queryItems: queryItems)
+        let url = try buildURL(path, queryItems: queryItems)
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
@@ -74,7 +74,7 @@ private struct ConversationAPIClient {
     }
 
     private func post<T: Decodable>(_ path: String) async throws -> T {
-        let url = buildURL(path, queryItems: [])
+        let url = try buildURL(path, queryItems: [])
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
@@ -83,7 +83,7 @@ private struct ConversationAPIClient {
     }
 
     private func delete<T: Decodable>(_ path: String) async throws -> T {
-        let url = buildURL(path, queryItems: [])
+        let url = try buildURL(path, queryItems: [])
         var request = URLRequest(url: url)
         request.httpMethod = "DELETE"
         request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
@@ -106,11 +106,14 @@ private struct ConversationAPIClient {
         }
     }
 
-    private func buildURL(_ path: String, queryItems: [URLQueryItem]) -> URL {
-        var components = URLComponents(url: instanceURL, resolvingAgainstBaseURL: false)!
+    private func buildURL(_ path: String, queryItems: [URLQueryItem]) throws -> URL {
+        guard var components = URLComponents(url: instanceURL, resolvingAgainstBaseURL: false) else {
+            throw MastodonClientError.invalidURL
+        }
         components.path = path
         if !queryItems.isEmpty { components.queryItems = queryItems }
-        return components.url!
+        guard let url = components.url else { throw MastodonClientError.invalidURL }
+        return url
     }
 }
 

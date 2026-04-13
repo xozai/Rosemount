@@ -242,3 +242,20 @@ Verify the following entitlements are in `Rosemount.entitlements`:
 | App Store Review Guidelines | https://developer.apple.com/app-store/review/guidelines |
 | fastlane deliver docs | https://docs.fastlane.tools/actions/deliver |
 | App Store screenshot specs | https://developer.apple.com/help/app-store-connect/reference/screenshot-specifications |
+
+---
+
+## Final Pre-Submission Checklist
+
+Run through every item on submission day before clicking "Submit for Review".
+
+- [ ] `DEVELOPMENT_TEAM` set in environment (`export DEVELOPMENT_TEAM=XXXXXXXXXX`)
+- [ ] All three rosemount.social URLs return HTTP 200 (`bundle exec fastlane run verify_url url:https://rosemount.social/privacy` etc.)
+- [ ] Screenshots captured for iPhone 6.7" (1290×2796), iPhone 6.1" (1179×2556), and iPad 12.9" (2048×2732)
+- [ ] Build number incremented (`CURRENT_PROJECT_VERSION` unique and > previous submission)
+- [ ] `fastlane match` certs synced (`bundle exec fastlane certs`)
+- [ ] `bundle exec fastlane test` passes with 0 failures
+- [ ] Demo mode verified: enter `rosemount-review` as instance URL → app loads without crash, all tabs navigable
+- [ ] App Review Notes include: "Use 'rosemount-review' as the instance URL on the sign-in screen to activate demo mode."
+- [ ] Privacy Nutrition Labels in App Store Connect match `App/PrivacyInfo.xcprivacy` declarations
+- [ ] `ITSAppUsesNonExemptEncryption = false` confirmed in `App/Info.plist`

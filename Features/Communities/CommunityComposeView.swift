@@ -112,8 +112,25 @@ struct CommunityComposeView: View {
                 .padding(.horizontal, 16)
                 .padding(.top, 6)
 
+                // Over-limit warning
+                if remainingCharacters < 0 {
+                    HStack(spacing: 6) {
+                        Image(systemName: "exclamationmark.circle.fill")
+                            .font(.caption)
+                            .foregroundStyle(.red)
+                        Text("Over limit by \(-remainingCharacters) character\(-remainingCharacters == 1 ? "" : "s")")
+                            .font(.caption)
+                            .foregroundStyle(.red)
+                        Spacer()
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.top, 6)
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+                    .animation(.easeInOut(duration: 0.2), value: remainingCharacters)
+                }
+
                 Divider()
-                    .padding(.top, 10)
+                    .padding(.top, 8)
 
                 // Bottom bar: character count + visibility picker
                 HStack(spacing: 12) {

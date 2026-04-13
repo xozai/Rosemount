@@ -109,6 +109,7 @@
 "settings.privacy_policy"     = "Privacy Policy";
 "settings.terms"              = "Terms of Service";
 "settings.support"            = "Support";
+"settings.add_account"        = "Add Account";
 "settings.sign_out"           = "Sign Out";
 "settings.sign_out.confirm"   = "Sign out of Rosemount?";
 "settings.sign_out.message"   = "You can sign back in at any time.";
@@ -135,6 +136,8 @@
 "error.network"           = "No internet connection.";
 "error.decryption"        = "Unable to decrypt message.";
 "error.offline_banner"    = "Cache unavailable — posts won't be saved offline.";
+"error.title"             = "Error";
+"error.dismiss"           = "OK";
 
 // MARK: - Voice Rooms
 
@@ -156,6 +159,20 @@
 // MARK: - Onboarding
 
 "onboarding.welcome.title"    = "Welcome to Rosemount";
+"onboarding.welcome.subtitle" = "Your community, connected.";
+"onboarding.signing_in"       = "Signing in…";
 "onboarding.sign_in"          = "Sign In";
 "onboarding.create_account"   = "Create Account";
 "onboarding.server.prompt"    = "Which server do you use?";
+
+// MARK: - Photo Composer
+
+"photo.compose.select_prompt"  = "Select photos to get started…";
+"photo.compose.caption"        = "What's on your mind?";
+"photo.compose.alt_text"       = "Accessibility descriptions";
+"photo.compose.alt_text.field" = "Add alt text…";
+"photo.compose.cw_label"       = "Content Warning";
+"photo.compose.cw_add"         = "Add content warning";
+"photo.compose.cw_remove"      = "Remove content warning";
+"photo.compose.uploading"      = "Uploading… %d%%";
+"photo.picker.loading"         = "Loading photos…";

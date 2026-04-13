@@ -30,7 +30,7 @@ struct PhotoComposeView: View {
                         )
 
                         if viewModel.selectedImages.isEmpty {
-                            Text("Select photos to get started…")
+                            Text(String(localized: "photo.compose.select_prompt"))
                                 .font(.subheadline)
                                 .foregroundStyle(.secondary)
                                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -57,6 +57,7 @@ struct PhotoComposeView: View {
                                             }
                                         }
                                         .buttonStyle(.plain)
+                                        .accessibilityLabel("Edit photo \(index + 1)")
                                     }
                                 }
                                 .padding(.vertical, 4)
@@ -90,7 +91,7 @@ struct PhotoComposeView: View {
                             .scrollContentBackground(.hidden)
                             .overlay(alignment: .topLeading) {
                                 if viewModel.caption.isEmpty {
-                                    Text("What's on your mind?")
+                                    Text(String(localized: "photo.compose.caption"))
                                         .font(.body)
                                         .foregroundStyle(.tertiary)
                                         .padding(.top, 8)
@@ -104,7 +105,7 @@ struct PhotoComposeView: View {
                     // MARK: Alt Text Fields
                     if !viewModel.selectedImages.isEmpty {
                         VStack(alignment: .leading, spacing: 8) {
-                            Text("Accessibility descriptions")
+                            Text(String(localized: "photo.compose.alt_text"))
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                                 .padding(.horizontal)
@@ -119,7 +120,7 @@ struct PhotoComposeView: View {
                                         .clipped()
 
                                     TextField(
-                                        "Add alt text…",
+                                        String(localized: "photo.compose.alt_text.field"),
                                         text: Binding(
                                             get: {
                                                 viewModel.altTexts.indices.contains(index)
@@ -146,12 +147,12 @@ struct PhotoComposeView: View {
                     // MARK: Content Warning
                     if viewModel.hasSpoilerText {
                         VStack(alignment: .leading, spacing: 4) {
-                            Text("Content Warning")
+                            Text(String(localized: "photo.compose.cw_label"))
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                                 .padding(.horizontal)
 
-                            TextField("Add a content warning…", text: $viewModel.spoilerText)
+                            TextField(String(localized: "compose.cw.placeholder"), text: $viewModel.spoilerText)
                                 .textFieldStyle(.roundedBorder)
                                 .padding(.horizontal)
                         }
@@ -168,6 +169,22 @@ struct PhotoComposeView: View {
                                 .tint(.blue)
                         }
                         .padding(.horizontal)
+                    }
+
+                    // MARK: Over-limit warning
+                    if viewModel.remainingCharacters < 0 {
+                        HStack(spacing: 6) {
+                            Image(systemName: "exclamationmark.circle.fill")
+                                .font(.caption)
+                                .foregroundStyle(.red)
+                            Text("Over limit by \(-viewModel.remainingCharacters) character\(-viewModel.remainingCharacters == 1 ? "" : "s")")
+                                .font(.caption)
+                                .foregroundStyle(.red)
+                            Spacer()
+                        }
+                        .padding(.horizontal)
+                        .transition(.opacity.combined(with: .move(edge: .top)))
+                        .animation(.easeInOut(duration: 0.2), value: viewModel.remainingCharacters)
                     }
 
                     // MARK: Error
@@ -261,7 +278,9 @@ struct PhotoComposeView: View {
                     .frame(width: 36, height: 36)
             }
             .buttonStyle(.plain)
-            .help("Content Warning")
+            .accessibilityLabel(viewModel.hasSpoilerText
+                ? String(localized: "photo.compose.cw_remove")
+                : String(localized: "photo.compose.cw_add"))
 
             // Visibility Picker
             Menu {

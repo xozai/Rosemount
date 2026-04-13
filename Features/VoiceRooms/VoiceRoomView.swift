@@ -269,135 +269,25 @@ struct AudioLevelIndicator: View {
 
 struct VoiceRoomsListView: View {
     let communitySlug: String?
-    @State private var rooms: [VoiceRoom] = []
-    @State private var isLoading = false
-    @State private var selectedRoom: VoiceRoom? = nil
-    @State private var showingCreate = false
-    @Environment(AuthManager.self) private var authManager
-    private var apiClient: VoiceRoomAPIClient? {
-        guard let acct = authManager.activeAccount else { return nil }
-        return VoiceRoomAPIClient(instanceURL: acct.instanceURL, accessToken: acct.accessToken)
-    }
 
     var body: some View {
-        Group {
-            if isLoading && rooms.isEmpty {
-                ProgressView()
-            } else if rooms.isEmpty {
-                VStack(spacing: 16) {
-                    Image(systemName: "waveform.circle")
-                        .font(.system(size: 52))
-                        .foregroundStyle(.secondary)
-                    Text("No live rooms right now")
-                        .foregroundStyle(.secondary)
-                    Button("Start a Room") { showingCreate = true }
-                        .buttonStyle(.borderedProminent)
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else {
-                List(rooms) { room in
-                    VoiceRoomRowView(room: room)
-                        .contentShape(Rectangle())
-                        .onTapGesture { selectedRoom = room }
-                        .listRowSeparator(.hidden)
-                        .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
-                }
-                .listStyle(.plain)
-                .refreshable { await loadRooms() }
-            }
-        }
-        .navigationTitle("Voice Rooms")
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Button { showingCreate = true } label: {
-                    Label("New Room", systemImage: "plus")
-                }
-            }
-        }
-        .fullScreenCover(item: $selectedRoom) { room in
-            VoiceRoomView(room: room).environment(authManager)
-        }
-        .sheet(isPresented: $showingCreate) {
-            CreateVoiceRoomView(communitySlug: communitySlug)
-                .environment(authManager)
-                .onDisappear { Task { await loadRooms() } }
-        }
-        .task { await loadRooms() }
-    }
-
-    private func loadRooms() async {
-        guard let client = apiClient else { return }
-        isLoading = true
-        rooms = (try? await client.liveRooms(communitySlug: communitySlug)) ?? []
-        isLoading = false
-    }
-}
-
-struct VoiceRoomRowView: View {
-    let room: VoiceRoom
-    var body: some View {
-        HStack(spacing: 12) {
-            ZStack {
-                Circle().fill(Color.purple.opacity(0.15)).frame(width: 48, height: 48)
-                Image(systemName: "waveform").font(.title3).foregroundStyle(.purple)
-            }
-            VStack(alignment: .leading, spacing: 3) {
-                HStack {
-                    Text("LIVE").font(.caption2.bold()).foregroundStyle(.white)
-                        .padding(.horizontal, 6).padding(.vertical, 2)
-                        .background(.red, in: Capsule())
-                    Text(room.title).font(.body.bold()).lineLimit(1)
-                }
-                Text("\(room.speakerCount) speakers · \(room.listenerCount) listening")
-                    .font(.caption).foregroundStyle(.secondary)
-            }
+        // Voice Rooms are in active development — show a Coming Soon placeholder
+        // until the WebRTC peer-connection layer is complete.
+        VStack(spacing: 20) {
             Spacer()
-            Image(systemName: "chevron.right").foregroundStyle(.tertiary).font(.caption)
+            Image(systemName: "waveform.circle")
+                .font(.system(size: 64))
+                .foregroundStyle(.secondary)
+            Text("Voice Rooms")
+                .font(.title2.bold())
+            Text("Live audio rooms are coming soon.\nJoin your community and talk in real time.")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 40)
+            Spacer()
         }
-        .padding(12)
-        .background(.background, in: RoundedRectangle(cornerRadius: 12))
-        .shadow(color: .black.opacity(0.05), radius: 3, y: 1)
-    }
-}
-
-struct CreateVoiceRoomView: View {
-    let communitySlug: String?
-    @State private var title = ""
-    @State private var tags = ""
-    @State private var isCreating = false
-    @State private var createdRoom: VoiceRoom? = nil
-    @Environment(AuthManager.self) private var authManager
-    @Environment(\.dismiss) private var dismiss
-
-    var body: some View {
-        NavigationStack {
-            Form {
-                Section("Room Details") {
-                    TextField("Room title", text: $title)
-                    TextField("Topic tags (comma separated)", text: $tags)
-                }
-            }
-            .navigationTitle("New Voice Room")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Start") {
-                        Task {
-                            guard let acct = authManager.activeAccount else { return }
-                            isCreating = true
-                            let client = VoiceRoomAPIClient(instanceURL: acct.instanceURL, accessToken: acct.accessToken)
-                            let tagList = tags.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }
-                            if let room = try? await client.createRoom(title: title, communitySlug: communitySlug, topicTags: tagList) {
-                                createdRoom = room
-                                dismiss()
-                            }
-                            isCreating = false
-                        }
-                    }
-                    .disabled(title.count < 3 || isCreating)
-                }
-            }
-        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .navigationTitle("Voice Rooms")
     }
 }

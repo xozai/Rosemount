@@ -69,9 +69,15 @@ struct SettingsView: View {
                         AccessibilityAuditView()
                     }
 
-                    Link(String(localized: "settings.privacy_policy"), destination: URL(string: AppStoreConfig.privacyPolicyURL)!)
-                    Link(String(localized: "settings.terms"), destination: URL(string: AppStoreConfig.marketingURL + "/terms")!)
-                    Link(String(localized: "settings.support"), destination: URL(string: AppStoreConfig.supportURL)!)
+                    if let privacyURL = URL(string: AppStoreConfig.privacyPolicyURL) {
+                        Link(String(localized: "settings.privacy_policy"), destination: privacyURL)
+                    }
+                    if let termsURL = URL(string: AppStoreConfig.marketingURL + "/terms") {
+                        Link(String(localized: "settings.terms"), destination: termsURL)
+                    }
+                    if let supportURL = URL(string: AppStoreConfig.supportURL) {
+                        Link(String(localized: "settings.support"), destination: supportURL)
+                    }
                 }
 
                 // MARK: Deployment Health (DEBUG builds only)

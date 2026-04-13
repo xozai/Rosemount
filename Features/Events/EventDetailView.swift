@@ -101,8 +101,9 @@ struct EventDetailView: View {
                     if viewModel.event.isOnline {
                         Label("Online Event", systemImage: "video")
                             .font(.subheadline)
-                        if let url = viewModel.event.onlineURL {
-                            Link("Join Online", destination: URL(string: url) ?? URL(string: "https://")!)
+                        if let urlString = viewModel.event.onlineURL,
+                           let onlineLink = URL(string: urlString) {
+                            Link("Join Online", destination: onlineLink)
                                 .font(.subheadline)
                         }
                     } else if let loc = viewModel.event.location {

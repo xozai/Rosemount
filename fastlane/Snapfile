@@ -6,9 +6,9 @@
 
 # Devices to capture (covers all required App Store sizes)
 devices([
-  "iPhone 16 Pro Max",   # 6.9" — required (replaces 6.7")
-  "iPhone 8 Plus",       # 5.5" — required
-  "iPad Pro (13-inch) (M4)"  # 13" iPad — required if iPad supported
+  "iPhone 15 Pro Max",                       # 6.7" — required
+  "iPhone 15",                               # 6.1" — required
+  "iPad Pro (12.9-inch) (6th generation)"    # 12.9" iPad — required if iPad is supported
 ])
 
 # Languages to capture (add more for localized submissions)

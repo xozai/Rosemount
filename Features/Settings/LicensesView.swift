@@ -177,9 +177,11 @@ private struct LicenseDetailView: View {
         .navigationTitle(license.name)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Link(destination: URL(string: license.url)!) {
-                    Label("Source", systemImage: "arrow.up.right.square")
+            if let sourceURL = URL(string: license.url) {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Link(destination: sourceURL) {
+                        Label("Source", systemImage: "arrow.up.right.square")
+                    }
                 }
             }
         }

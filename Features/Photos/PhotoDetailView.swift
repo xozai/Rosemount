@@ -98,14 +98,12 @@ struct PhotoDetailView: View {
                     .padding(.bottom, 8)
 
                     // Caption
-                    if let text = status.content, !text.isEmpty {
-                        let stripped = text.replacingOccurrences(of: "<[^>]+>", with: "", options: .regularExpression)
-                        if !stripped.isEmpty {
-                            Text(stripped)
-                                .font(.subheadline)
-                                .padding(.horizontal, 12)
-                                .padding(.bottom, 8)
-                        }
+                    let stripped = status.content.replacingOccurrences(of: "<[^>]+>", with: "", options: .regularExpression)
+                    if !stripped.isEmpty {
+                        Text(stripped)
+                            .font(.subheadline)
+                            .padding(.horizontal, 12)
+                            .padding(.bottom, 8)
                     }
 
                     // Alt text for current image

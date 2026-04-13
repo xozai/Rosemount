@@ -26,6 +26,15 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         BackgroundSyncService.registerTasks()
         MetricKitReporter.shared.start()
 
+        #if DEBUG
+        Task {
+            let results = await AppStoreConfig.validateURLs()
+            results.forEach { url, ok in
+                logger.debug("URL health \(ok ? "✅" : "❌"): \(url)")
+            }
+        }
+        #endif
+
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .badge, .sound]) { granted, error in
             if let error {
                 logger.error("Push authorisation request failed: \(error.localizedDescription)")

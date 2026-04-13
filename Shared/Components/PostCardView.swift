@@ -8,6 +8,7 @@
 // Swift 5.10 | iOS 17.0+
 
 import SwiftUI
+import UIKit
 
 // MastodonStatus       — defined in Core/Mastodon/Models/MastodonStatus.swift
 // MastodonAccount      — defined in Core/Mastodon/Models/MastodonAccount.swift
@@ -278,13 +279,20 @@ struct PostCardView: View {
 
             Spacer()
 
-            // Share
-            ShareLink(item: status.url.flatMap { URL(string: $0) } ?? URL(string: "https://rosemount.app")!) {
+            // Share — only shown when the status has a valid URL
+            if let shareURL = status.url.flatMap({ URL(string: $0) }) {
+                ShareLink(item: shareURL) {
+                    Image(systemName: "square.and.arrow.up")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+                .accessibilityLabel("Share post")
+            } else {
                 Image(systemName: "square.and.arrow.up")
                     .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.tertiary)
+                    .accessibilityHidden(true)
             }
-            .accessibilityLabel("Share post")
         }
     }
 
@@ -297,7 +305,10 @@ struct PostCardView: View {
         accessibilityLabel: String,
         action: @escaping () -> Void
     ) -> some View {
-        Button(action: action) {
+        Button {
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            action()
+        } label: {
             HStack(spacing: 4) {
                 Image(systemName: icon)
                     .font(.subheadline)

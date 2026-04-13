@@ -15,10 +15,10 @@ extension MastodonAPIClient {
         maxId: String? = nil,
         limit: Int = 20
     ) async throws -> [MastodonStatus] {
-        var components = URLComponents(
-            url: instanceURL.appendingPathComponent("/api/v1/accounts/\(id)/statuses"),
-            resolvingAgainstBaseURL: false
-        )!
+        let base = instanceURL.appendingPathComponent("/api/v1/accounts/\(id)/statuses")
+        guard var components = URLComponents(url: base, resolvingAgainstBaseURL: false) else {
+            throw MastodonClientError.invalidURL
+        }
         var queryItems: [URLQueryItem] = [
             URLQueryItem(name: "limit", value: String(limit))
         ]
@@ -26,8 +26,9 @@ extension MastodonAPIClient {
             queryItems.append(URLQueryItem(name: "max_id", value: maxId))
         }
         components.queryItems = queryItems
+        guard let url = components.url else { throw MastodonClientError.invalidURL }
 
-        var request = URLRequest(url: components.url!)
+        var request = URLRequest(url: url)
         request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
 
         let (data, _) = try await URLSession.shared.data(for: request)
