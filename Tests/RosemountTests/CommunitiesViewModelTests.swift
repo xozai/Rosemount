@@ -162,6 +162,8 @@ private func makeCommunity(id: String, slug: String, isMember: Bool) -> Rosemoun
         createdAt: "2025-01-01T00:00:00Z",
         instanceHost: "mastodon.social",
         myRole: isMember ? .member : nil,
-        isMember: isMember
+        isMember: isMember,
+        isPinned: false,
+        pinnedPostIds: []
     )
 }

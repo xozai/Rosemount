@@ -73,7 +73,7 @@ final class ProfileViewModel {
 
     var isOwnProfile: Bool {
         guard let activeAccount, let account else { return false }
-        return account.id == activeAccount.id
+        return account.id == activeAccount.id.uuidString
     }
 
     var followButtonTitle: String {
