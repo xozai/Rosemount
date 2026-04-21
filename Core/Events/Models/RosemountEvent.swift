@@ -117,4 +117,17 @@ extension RosemountEvent {
     var locationCoordinate: CLLocationCoordinate2D? {
         location?.coordinate
     }
+
+    func withMyRsvp(_ newRsvp: RSVPStatus?) -> RosemountEvent {
+        RosemountEvent(
+            id: id, title: title, description: description,
+            startDate: startDate, endDate: endDate, timezone: timezone,
+            location: location, organizer: organizer,
+            communityId: communityId, communitySlug: communitySlug,
+            attendeeCount: attendeeCount, interestedCount: interestedCount,
+            myRsvp: newRsvp,
+            isOnline: isOnline, onlineURL: onlineURL, bannerURL: bannerURL,
+            createdAt: createdAt, activityPubId: activityPubId
+        )
+    }
 }

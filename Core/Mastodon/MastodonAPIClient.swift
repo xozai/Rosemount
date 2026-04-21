@@ -389,6 +389,25 @@ actor MastodonAPIClient {
         let _: EmptyResponse = try await request("/api/v1/push/subscription", method: "DELETE")
     }
 
+    // MARK: - Conversations (Direct Messages)
+
+    /// Returns the list of DM conversations for the authenticated user.
+    func conversations(maxId: String? = nil, limit: Int = 40) async throws -> [MastodonConversation] {
+        var items: [URLQueryItem] = [URLQueryItem(name: "limit", value: String(limit))]
+        if let maxId { items.append(URLQueryItem(name: "max_id", value: maxId)) }
+        return try await request("/api/v1/conversations", queryItems: items)
+    }
+
+    /// Marks a conversation as read and returns the updated conversation entity.
+    func markConversationRead(id: String) async throws -> MastodonConversation {
+        try await request("/api/v1/conversations/\(id)/read", method: "POST")
+    }
+
+    /// Deletes a conversation (irreversible).
+    func deleteConversation(id: String) async throws {
+        let _: EmptyResponse = try await request("/api/v1/conversations/\(id)", method: "DELETE")
+    }
+
     // MARK: - Media
 
     /// Uploads media data and returns the resulting attachment entity.

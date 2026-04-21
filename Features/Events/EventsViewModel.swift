@@ -55,17 +55,23 @@ final class EventsViewModel {
 
     func rsvp(event: RosemountEvent, status: RSVPStatus) async {
         guard let client else { return }
-        // Optimistic update
+
+        // Optimistic update: reflect the new RSVP immediately.
         if let idx = events.firstIndex(where: { $0.id == event.id }) {
-            // We can't mutate struct fields via index directly — replace
-            // RosemountEvent is immutable; reload after success
+            events[idx] = event.withMyRsvp(status)
         }
+
         do {
             let updated = try await client.rsvp(eventId: event.id, status: status)
+            // Reconcile with authoritative server response.
             if let idx = events.firstIndex(where: { $0.id == updated.id }) {
                 events[idx] = updated
             }
         } catch {
+            // Roll back optimistic change on failure.
+            if let idx = events.firstIndex(where: { $0.id == event.id }) {
+                events[idx] = event
+            }
             self.error = error
         }
     }
