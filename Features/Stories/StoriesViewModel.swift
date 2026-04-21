@@ -37,7 +37,12 @@ final class StoriesViewModel {
     func deleteStory(_ story: RosemountStory) async {
         guard let client else { return }
         myStories.removeAll { $0.id == story.id }
-        try? await client.deleteStory(id: story.id)
+        do {
+            try await client.deleteStory(id: story.id)
+        } catch {
+            myStories.insert(story, at: 0)
+            self.error = error
+        }
     }
 
     var allGroups: [StoryGroup] {
