@@ -40,6 +40,8 @@
 "compose.draft.save_message" = "Your post will be saved so you can finish it later.";
 "compose.location.add"       = "Add location";
 "compose.location.remove"    = "Remove location";
+"compose.poll.add"           = "Add poll";
+"compose.poll.remove"        = "Remove poll";
 
 // MARK: - Drafts
 

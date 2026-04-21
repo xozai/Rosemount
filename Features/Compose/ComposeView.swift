@@ -113,6 +113,16 @@ struct ComposeView: View {
                         .padding(.top, 8)
                 }
 
+                // Poll composer (shown when poll is enabled, mutually exclusive with media)
+                if viewModel.isPollEnabled {
+                    PollComposerView(
+                        viewModel: $viewModel.pollComposerViewModel,
+                        isEnabled: $viewModel.isPollEnabled
+                    )
+                    .padding(.horizontal, 16)
+                    .padding(.top, 8)
+                }
+
                 // Location chip
                 if let place = viewModel.selectedPlaceName {
                     HStack(spacing: 6) {
@@ -217,6 +227,25 @@ struct ComposeView: View {
                             .font(.title3)
                     }
                     .foregroundStyle(viewModel.hasSpoilerText ? Color.orange : Color(.systemGray))
+
+                    // Poll toggle (disabled when media is attached)
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            if viewModel.isPollEnabled {
+                                viewModel.removePoll()
+                            } else {
+                                viewModel.attachPoll()
+                            }
+                        }
+                    } label: {
+                        Image(systemName: viewModel.isPollEnabled ? "chart.bar.fill" : "chart.bar")
+                            .font(.title3)
+                    }
+                    .foregroundStyle(viewModel.isPollEnabled ? Color.accentColor : Color(.systemGray))
+                    .disabled(!viewModel.attachments.isEmpty)
+                    .accessibilityLabel(viewModel.isPollEnabled
+                        ? String(localized: "compose.poll.remove")
+                        : String(localized: "compose.poll.add"))
 
                     Spacer()
 

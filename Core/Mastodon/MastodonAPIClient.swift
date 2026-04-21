@@ -194,7 +194,10 @@ actor MastodonAPIClient {
         inReplyToId: String? = nil,
         spoilerText: String? = nil,
         sensitive: Bool = false,
-        mediaIds: [String] = []
+        mediaIds: [String] = [],
+        pollOptions: [String]? = nil,
+        pollExpiresIn: Int? = nil,
+        pollMultiple: Bool = false
     ) async throws -> MastodonStatus {
         var body: [String: Any] = [
             "status":     content,
@@ -204,6 +207,13 @@ actor MastodonAPIClient {
         if let inReplyToId { body["in_reply_to_id"] = inReplyToId }
         if let spoilerText, !spoilerText.isEmpty { body["spoiler_text"] = spoilerText }
         if !mediaIds.isEmpty { body["media_ids"] = mediaIds }
+        if let options = pollOptions, !options.isEmpty {
+            body["poll"] = [
+                "options":    options,
+                "expires_in": pollExpiresIn ?? 86400,
+                "multiple":   pollMultiple,
+            ]
+        }
 
         return try await request("/api/v1/statuses", method: "POST", body: body)
     }

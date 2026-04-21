@@ -120,6 +120,7 @@ final class AuthManager {
         }
         activeAccount = credential
         persistAccounts()
+        Task { await PushNotificationService.shared.requestAuthorization() }
     }
 
     /// Removes an account credential.

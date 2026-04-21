@@ -73,6 +73,21 @@ final class ComposeViewModel {
         selectedPlaceCoordinate = snapped
     }
 
+    // MARK: - Poll
+
+    var pollComposerViewModel = PollComposerViewModel()
+    var isPollEnabled: Bool = false
+
+    func attachPoll() {
+        guard attachments.isEmpty else { return }
+        isPollEnabled = true
+    }
+
+    func removePoll() {
+        isPollEnabled = false
+        pollComposerViewModel = PollComposerViewModel()
+    }
+
     // MARK: - Media Attachments
 
     /// Uploaded media attachments to include in the post.
@@ -108,7 +123,9 @@ final class ComposeViewModel {
     /// `true` when the draft has content or attachments, is within the limit, and is not posting.
     var canPost: Bool {
         let hasContent = !content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        let pollOK = !isPollEnabled || pollComposerViewModel.isValid
         return (hasContent || !attachments.isEmpty)
+            && pollOK
             && remainingCharacters >= 0
             && !isPosting
             && !isUploadingMedia
@@ -196,12 +213,18 @@ final class ComposeViewModel {
                     body += "\n\n📍 \(name)"
                 }
             }
+            let pollOptions: [String]? = isPollEnabled
+                ? pollComposerViewModel.options.map(\.text)
+                : nil
             _ = try await client.createStatus(
                 content: body,
                 visibility: visibility,
                 inReplyToId: inReplyToId,
                 spoilerText: spoiler.isEmpty ? nil : spoiler,
-                mediaIds: attachments.map(\.id)
+                mediaIds: attachments.map(\.id),
+                pollOptions: pollOptions,
+                pollExpiresIn: isPollEnabled ? pollComposerViewModel.expiryDuration.rawValue : nil,
+                pollMultiple: isPollEnabled ? pollComposerViewModel.isMultipleChoice : false
             )
             // Reset draft on success.
             content = ""
@@ -210,6 +233,8 @@ final class ComposeViewModel {
             attachments = []
             selectedPlaceName = nil
             selectedPlaceCoordinate = nil
+            isPollEnabled = false
+            pollComposerViewModel = PollComposerViewModel()
             didPost = true
         } catch {
             self.error = error
@@ -231,6 +256,8 @@ final class ComposeViewModel {
         attachments = []
         selectedPlaceName = nil
         selectedPlaceCoordinate = nil
+        isPollEnabled = false
+        pollComposerViewModel = PollComposerViewModel()
         error = nil
         didPost = false
         isPosting = false
