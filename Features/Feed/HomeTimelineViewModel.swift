@@ -183,13 +183,13 @@ final class HomeTimelineViewModel {
 
         // Optimistic update — swap the local copy immediately.
         applyOptimisticUpdate(id: status.id) { s in
-            s.favourited ? s.withFavouritesCount(s.favouritesCount - 1).withFavourited(false)
-                         : s.withFavouritesCount(s.favouritesCount + 1).withFavourited(true)
+            s.isFavourited ? s.withFavouritesCount(s.favouritesCount - 1).withFavourited(false)
+                           : s.withFavouritesCount(s.favouritesCount + 1).withFavourited(true)
         }
 
         do {
             let updated: MastodonStatus
-            if status.favourited {
+            if status.isFavourited {
                 updated = try await client.unfavouriteStatus(id: status.id)
             } else {
                 updated = try await client.favouriteStatus(id: status.id)
@@ -213,13 +213,13 @@ final class HomeTimelineViewModel {
 
         // Optimistic update.
         applyOptimisticUpdate(id: status.id) { s in
-            s.reblogged ? s.withReblogsCount(s.reblogsCount - 1).withReblogged(false)
-                        : s.withReblogsCount(s.reblogsCount + 1).withReblogged(true)
+            s.isReblogged ? s.withReblogsCount(s.reblogsCount - 1).withReblogged(false)
+                          : s.withReblogsCount(s.reblogsCount + 1).withReblogged(true)
         }
 
         do {
             let updated: MastodonStatus
-            if status.reblogged {
+            if status.isReblogged {
                 updated = try await client.unboostStatus(id: status.id)
             } else {
                 updated = try await client.boostStatus(id: status.id)

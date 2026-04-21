@@ -139,13 +139,7 @@ actor MastodonAPIClient {
         self.instanceURL = instanceURL
         self.accessToken = accessToken
         self.session = session
-
-        let d = JSONDecoder()
-        // Use .convertFromSnakeCase so we don't need CodingKeys in every model.
-        // Models that need precise key control override via their own CodingKeys.
-        d.keyDecodingStrategy = .convertFromSnakeCase
-        d.dateDecodingStrategy = .iso8601
-        self.decoder = d
+        self.decoder = .mastodon
     }
 
     // MARK: - Timeline

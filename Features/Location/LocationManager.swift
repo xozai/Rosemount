@@ -68,7 +68,11 @@ final class LocationManager: NSObject {
                         break
                     }
                     if let loc = currentLocation {
-                        try? await client.updateLocation(loc)
+                        do {
+                            try await client.updateLocation(loc)
+                        } catch {
+                            self.error = error
+                        }
                     }
                 }
             }
@@ -83,7 +87,11 @@ final class LocationManager: NSObject {
         isSharing = false
         sharingExpiry = nil
         manager.stopUpdatingLocation()
-        try? await apiClient?.stopSharing()
+        do {
+            try await apiClient?.stopSharing()
+        } catch {
+            self.error = error
+        }
     }
 
     var timeUntilExpiry: String? {

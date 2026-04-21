@@ -14,6 +14,7 @@ import Observation
 // MARK: - NetworkMonitor
 
 @Observable
+@MainActor
 final class NetworkMonitor {
 
     // MARK: - Published State
@@ -28,11 +29,10 @@ final class NetworkMonitor {
 
     // MARK: - Init / Lifecycle
 
-    init() {
+    nonisolated init() {
         monitor.pathUpdateHandler = { [weak self] path in
-            DispatchQueue.main.async {
-                self?.isConnected = path.status == .satisfied
-            }
+            let connected = path.status == .satisfied
+            Task { @MainActor [weak self] in self?.isConnected = connected }
         }
         monitor.start(queue: monitorQueue)
     }

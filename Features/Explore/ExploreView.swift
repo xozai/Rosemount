@@ -37,6 +37,9 @@ struct ExploreView: View {
                     placement: .navigationBarDrawer(displayMode: .always),
                     prompt: String(localized: "explore.search.prompt")
                 )
+                .sheet(item: $viewModel.replyTarget) { target in
+                    ComposeView(replyTo: target)
+                }
                 .onChange(of: viewModel.searchQuery) { _, newValue in
                     viewModel.onQueryChanged(newValue)
                 }
@@ -167,9 +170,9 @@ struct ExploreView: View {
                                 PostCardView(
                                     status: status,
                                     onTap: nil,
-                                    onFavourite: nil,
-                                    onBoost: nil,
-                                    onReply: nil
+                                    onFavourite: { Task { await viewModel.toggleFavourite(status) } },
+                                    onBoost:     { Task { await viewModel.boost(status) } },
+                                    onReply:     { viewModel.replyTarget = status }
                                 )
                                 .tint(.primary)
                             }
@@ -256,6 +259,9 @@ struct HashtagFeedView: View {
 
     @State private var statuses: [MastodonStatus] = []
     @State private var isLoading = false
+    @State private var error: Error? = nil
+    @State private var replyTarget: MastodonStatus? = nil
+    @State private var client: MastodonAPIClient? = nil
     @Environment(AuthManager.self) private var authManager
 
     var body: some View {
@@ -277,9 +283,9 @@ struct HashtagFeedView: View {
                                 PostCardView(
                                     status: status,
                                     onTap: nil,
-                                    onFavourite: nil,
-                                    onBoost: nil,
-                                    onReply: nil
+                                    onFavourite: { Task { await toggleFavourite(status) } },
+                                    onBoost:     { Task { await boost(status) } },
+                                    onReply:     { replyTarget = status }
                                 )
                                 .tint(.primary)
                             }
@@ -294,20 +300,65 @@ struct HashtagFeedView: View {
         }
         .navigationTitle("#\(hashtag)")
         .navigationBarTitleDisplayMode(.inline)
+        .sheet(item: $replyTarget) { target in
+            ComposeView(replyTo: target)
+        }
         .task {
             guard let credential = authManager.activeAccount else { return }
             isLoading = true
-            let client = MastodonAPIClient(
+            let c = MastodonAPIClient(
                 instanceURL: credential.instanceURL,
                 accessToken: credential.accessToken
             )
+            client = c
             do {
-                statuses = try await client.hashtagTimeline(hashtag: hashtag, limit: 40)
+                statuses = try await c.hashtagTimeline(hashtag: hashtag, limit: 40)
             } catch {
-                // Non-fatal; empty state is shown.
+                self.error = error
             }
             isLoading = false
         }
+    }
+
+    private func toggleFavourite(_ status: MastodonStatus) async {
+        guard let client else { return }
+        applyUpdate(id: status.id) { s in
+            s.isFavourited
+                ? s.withFavouritesCount(s.favouritesCount - 1).withFavourited(false)
+                : s.withFavouritesCount(s.favouritesCount + 1).withFavourited(true)
+        }
+        do {
+            let updated = status.isFavourited
+                ? try await client.unfavouriteStatus(id: status.id)
+                : try await client.favouriteStatus(id: status.id)
+            applyUpdate(id: updated.id) { _ in updated }
+        } catch {
+            self.error = error
+            applyUpdate(id: status.id) { _ in status }
+        }
+    }
+
+    private func boost(_ status: MastodonStatus) async {
+        guard let client else { return }
+        applyUpdate(id: status.id) { s in
+            s.isReblogged
+                ? s.withReblogsCount(s.reblogsCount - 1).withReblogged(false)
+                : s.withReblogsCount(s.reblogsCount + 1).withReblogged(true)
+        }
+        do {
+            let updated = status.isReblogged
+                ? try await client.unboostStatus(id: status.id)
+                : try await client.boostStatus(id: status.id)
+            applyUpdate(id: updated.id) { _ in updated }
+        } catch {
+            self.error = error
+            applyUpdate(id: status.id) { _ in status }
+        }
+    }
+
+    private func applyUpdate(id: String, transform: (MastodonStatus) -> MastodonStatus) {
+        guard let idx = statuses.firstIndex(where: { $0.id == id }) else { return }
+        statuses[idx] = transform(statuses[idx])
     }
 }
 

@@ -107,7 +107,11 @@ final class VoiceRoomViewModel: WebRTCSignalingDelegate {
         audioEngine.stop()
         WebRTCAudioSession.shared.deactivate()
         isConnected = false
-        try? await apiClient.leaveRoom(id: room.id)
+        do {
+            try await apiClient.leaveRoom(id: room.id)
+        } catch {
+            self.error = error
+        }
     }
 
     func toggleMute() {

@@ -120,4 +120,57 @@ final class ExploreViewModel {
 
         isLoading = false
     }
+
+    // MARK: - Status Actions (search results)
+
+    /// The status to reply to; set to present the compose sheet.
+    var replyTarget: MastodonStatus? = nil
+
+    func toggleFavourite(_ status: MastodonStatus) async {
+        guard let client else { return }
+        applyOptimisticStatusUpdate(id: status.id) { s in
+            s.isFavourited
+                ? s.withFavouritesCount(s.favouritesCount - 1).withFavourited(false)
+                : s.withFavouritesCount(s.favouritesCount + 1).withFavourited(true)
+        }
+        do {
+            let updated = status.isFavourited
+                ? try await client.unfavouriteStatus(id: status.id)
+                : try await client.favouriteStatus(id: status.id)
+            applyOptimisticStatusUpdate(id: updated.id) { _ in updated }
+        } catch {
+            self.error = error
+            applyOptimisticStatusUpdate(id: status.id) { _ in status }
+        }
+    }
+
+    func boost(_ status: MastodonStatus) async {
+        guard let client else { return }
+        applyOptimisticStatusUpdate(id: status.id) { s in
+            s.isReblogged
+                ? s.withReblogsCount(s.reblogsCount - 1).withReblogged(false)
+                : s.withReblogsCount(s.reblogsCount + 1).withReblogged(true)
+        }
+        do {
+            let updated = status.isReblogged
+                ? try await client.unboostStatus(id: status.id)
+                : try await client.boostStatus(id: status.id)
+            applyOptimisticStatusUpdate(id: updated.id) { _ in updated }
+        } catch {
+            self.error = error
+            applyOptimisticStatusUpdate(id: status.id) { _ in status }
+        }
+    }
+
+    private func applyOptimisticStatusUpdate(id: String, transform: (MastodonStatus) -> MastodonStatus) {
+        guard let results = searchResults,
+              let idx = results.statuses.firstIndex(where: { $0.id == id }) else { return }
+        var updated = results.statuses
+        updated[idx] = transform(updated[idx])
+        searchResults = MastodonSearchResults(
+            accounts: results.accounts,
+            statuses: updated,
+            hashtags: results.hashtags
+        )
+    }
 }

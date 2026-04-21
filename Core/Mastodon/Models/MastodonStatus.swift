@@ -310,4 +310,84 @@ extension MastodonStatus {
     var displayStatus: MastodonStatus {
         reblog?.status ?? self
     }
+
+    // MARK: - Authenticated relationship flags (non-optional convenience)
+
+    var isFavourited: Bool { favourited ?? false }
+    var isReblogged:  Bool { reblogged  ?? false }
+    var isMuted:      Bool { muted      ?? false }
+    var isBookmarked: Bool { bookmarked ?? false }
+    var isPinned:     Bool { pinned     ?? false }
+
+    // MARK: - Immutable copy helpers for optimistic updates
+
+    func withFavourited(_ value: Bool) -> MastodonStatus {
+        MastodonStatus(
+            id: id, uri: uri, url: url, createdAt: createdAt, account: account,
+            content: content, visibility: visibility, sensitive: sensitive,
+            spoilerText: spoilerText, mediaAttachments: mediaAttachments,
+            application: application, mentions: mentions, tags: tags, emojis: emojis,
+            reblogsCount: reblogsCount, favouritesCount: favouritesCount,
+            repliesCount: repliesCount, reblog: reblog, poll: poll, card: card,
+            language: language, text: text, editedAt: editedAt,
+            favourited: value, reblogged: reblogged, muted: muted,
+            bookmarked: bookmarked, pinned: pinned
+        )
+    }
+
+    func withReblogged(_ value: Bool) -> MastodonStatus {
+        MastodonStatus(
+            id: id, uri: uri, url: url, createdAt: createdAt, account: account,
+            content: content, visibility: visibility, sensitive: sensitive,
+            spoilerText: spoilerText, mediaAttachments: mediaAttachments,
+            application: application, mentions: mentions, tags: tags, emojis: emojis,
+            reblogsCount: reblogsCount, favouritesCount: favouritesCount,
+            repliesCount: repliesCount, reblog: reblog, poll: poll, card: card,
+            language: language, text: text, editedAt: editedAt,
+            favourited: favourited, reblogged: value, muted: muted,
+            bookmarked: bookmarked, pinned: pinned
+        )
+    }
+
+    func withBookmarked(_ value: Bool) -> MastodonStatus {
+        MastodonStatus(
+            id: id, uri: uri, url: url, createdAt: createdAt, account: account,
+            content: content, visibility: visibility, sensitive: sensitive,
+            spoilerText: spoilerText, mediaAttachments: mediaAttachments,
+            application: application, mentions: mentions, tags: tags, emojis: emojis,
+            reblogsCount: reblogsCount, favouritesCount: favouritesCount,
+            repliesCount: repliesCount, reblog: reblog, poll: poll, card: card,
+            language: language, text: text, editedAt: editedAt,
+            favourited: favourited, reblogged: reblogged, muted: muted,
+            bookmarked: value, pinned: pinned
+        )
+    }
+
+    func withFavouritesCount(_ count: Int) -> MastodonStatus {
+        MastodonStatus(
+            id: id, uri: uri, url: url, createdAt: createdAt, account: account,
+            content: content, visibility: visibility, sensitive: sensitive,
+            spoilerText: spoilerText, mediaAttachments: mediaAttachments,
+            application: application, mentions: mentions, tags: tags, emojis: emojis,
+            reblogsCount: reblogsCount, favouritesCount: count,
+            repliesCount: repliesCount, reblog: reblog, poll: poll, card: card,
+            language: language, text: text, editedAt: editedAt,
+            favourited: favourited, reblogged: reblogged, muted: muted,
+            bookmarked: bookmarked, pinned: pinned
+        )
+    }
+
+    func withReblogsCount(_ count: Int) -> MastodonStatus {
+        MastodonStatus(
+            id: id, uri: uri, url: url, createdAt: createdAt, account: account,
+            content: content, visibility: visibility, sensitive: sensitive,
+            spoilerText: spoilerText, mediaAttachments: mediaAttachments,
+            application: application, mentions: mentions, tags: tags, emojis: emojis,
+            reblogsCount: count, favouritesCount: favouritesCount,
+            repliesCount: repliesCount, reblog: reblog, poll: poll, card: card,
+            language: language, text: text, editedAt: editedAt,
+            favourited: favourited, reblogged: reblogged, muted: muted,
+            bookmarked: bookmarked, pinned: pinned
+        )
+    }
 }

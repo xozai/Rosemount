@@ -39,13 +39,7 @@ extension MastodonAPIClient {
 
     // MARK: - File-private Helpers
 
-    /// Returns a correctly configured JSON decoder matching the one used inside MastodonAPIClient.
-    fileprivate var p2Decoder: JSONDecoder {
-        let d = JSONDecoder()
-        d.keyDecodingStrategy = .convertFromSnakeCase
-        d.dateDecodingStrategy = .iso8601
-        return d
-    }
+    fileprivate var p2Decoder: JSONDecoder { .mastodon }
 
     /// Builds a complete URL by appending `path` to `instanceURL` with optional query items.
     fileprivate func p2BuildURL(_ path: String, queryItems: [URLQueryItem] = []) throws -> URL {
